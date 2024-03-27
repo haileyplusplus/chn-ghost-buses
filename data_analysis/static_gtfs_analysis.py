@@ -30,6 +30,7 @@ from scrape_data.scrape_schedule_versions import create_schedule_list
 
 VERSION_ID = "20220718"
 BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
+DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
 logger = logging.getLogger()
 logging.basicConfig(
@@ -37,6 +38,25 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
+
+
+class FileManager:
+    def __init__(self):
+        self.download_dir = DATA_DIR / "downloads"
+        if not self.download_dir.exists():
+            self.download_dir.mkdir()
+
+    def retrieve(self, filename: str, url: str) -> BytesIO:
+        filepath = self.download_dir / filename
+        if filepath.exists():
+            logging.info(f'Retrieved cached {url} from {filename}')
+            return BytesIO(filepath.open('rb').read())
+        bytes_io = BytesIO(requests.get(url).content)
+        with filepath.open('wb') as ofh:
+            ofh.write(bytes_io.getvalue())
+        logging.info(f'Stored cached {url} in {filename}')
+        return bytes_io
+
 
 @dataclass
 class GTFSFeed:
@@ -338,10 +358,11 @@ def download_cta_zip() -> Tuple[zipfile.ZipFile, BytesIO]:
         zipfile.ZipFile: A zipfile of the latest GTFS schedule data from transitchicago.com
     """
     logger.info('Downloading CTA data')
-    zip_bytes_io = BytesIO(
-            requests.get("https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
-            ).content
-        )
+    fm = FileManager()
+    zip_bytes_io = fm.retrieve(
+        'google_transit.zip',
+        "https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
+    )
     CTA_GTFS = zipfile.ZipFile(zip_bytes_io)
     logging.info('Download complete')
     return CTA_GTFS, zip_bytes_io
@@ -359,13 +380,12 @@ def download_zip(version_id: str) -> zipfile.ZipFile:
         zipfile.ZipFile: A zipfile for the CTA version id.
     """
     logger.info('Downloading CTA data')
+    fm = FileManager()
     CTA_GTFS = zipfile.ZipFile(
-        BytesIO(
-            requests.get(
-                f"https://transitfeeds.com/p/chicago-transit-authority"
-                f"/165/{version_id}/download"
-            ).content
-        )
+        fm.retrieve(f'{version_id}.zip',
+                    f"https://transitfeeds.com/p/chicago-transit-authority"
+                    f"/165/{version_id}/download"
+                    )
     )
     logging.info('Download complete')
     return CTA_GTFS
@@ -469,7 +489,7 @@ def main() -> geopandas.GeoDataFrame:
     final_gdf["geometry"] = final_gdf["geometry"].simplify(0.0001)
 
     save_path = (
-        Path(__file__).parent.parent / "data_output" / "scratch" /
+        DATA_DIR /
         f"route_shapes_simplified_linestring"
         f"_{pendulum.now().strftime('%Y-%m-%d-%H:%M:%S')}.geojson"
     )
