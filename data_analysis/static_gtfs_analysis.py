@@ -14,9 +14,13 @@ import os
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Tuple
+from functools import partial
 
 import logging
 import calendar
+import datetime
+
+import pandas
 import pandas as pd
 import zipfile
 import requests
@@ -41,13 +45,13 @@ logging.basicConfig(
 
 
 class FileManager:
-    def __init__(self):
-        self.download_dir = DATA_DIR / "downloads"
-        if not self.download_dir.exists():
-            self.download_dir.mkdir()
+    def __init__(self, subdir):
+        self.cache_dir = DATA_DIR / subdir
+        if not self.cache_dir.exists():
+            self.cache_dir.mkdir()
 
     def retrieve(self, filename: str, url: str) -> BytesIO:
-        filepath = self.download_dir / filename
+        filepath = self.cache_dir / filename
         if filepath.exists():
             logging.info(f'Retrieved cached {url} from {filename}')
             return BytesIO(filepath.open('rb').read())
@@ -56,6 +60,33 @@ class FileManager:
             ofh.write(bytes_io.getvalue())
         logging.info(f'Stored cached {url} in {filename}')
         return bytes_io
+
+    @staticmethod
+    def fix_dt_column(df, c):
+        def fixer(x):
+            if type(x) is not int:
+                return pd.NaT
+            return datetime.datetime.fromtimestamp(x / 1000).astimezone(datetime.UTC)
+        df[c] = df[c].apply(fixer)
+        return df
+
+    def retrieve_calculated_dataframe(self, filename, func, dt_fields: list[str]) -> pd.DataFrame:
+        filepath = self.cache_dir / filename
+        if filepath.exists():
+            logging.info(f'Retrieved {filename} from cache')
+            df = pandas.read_json(filepath)
+            assert type(df) is pd.DataFrame
+            for c in dt_fields:
+                df = self.fix_dt_column(df, c)
+            #print('Retrieved df')
+            #print(df)
+            return df
+        logging.info(f'Writing {filename} to cache')
+        df = func()
+        df.to_json(filepath)
+        #print(f'Storing df')
+        #print(df)
+        return df
 
 
 @dataclass
@@ -165,120 +196,142 @@ def format_dates_hours(data: GTFSFeed) -> GTFSFeed:
     return data
 
 
-def make_trip_summary(
-    data: GTFSFeed,
-    feed_start_date: pendulum.datetime = None,
+class Schedule:
+    def __init__(self, gtfs_feed):
+        self.gtfs_feed = gtfs_feed
+        self.file_manager = FileManager("schedules")
+
+    def make_trip_summary(self,
+                          feed_start_date: pendulum.datetime = None,
+                          feed_end_date: pendulum.datetime = None) -> pd.DataFrame:
+        logging.info(f'Callling make_trip_summary with {feed_start_date}, {feed_end_date}')
+        start_str = 'none'
+        if feed_start_date:
+            start_str = feed_start_date.format('YYYYMMDD')
+        end_str = 'none'
+        if feed_end_date:
+            end_str = feed_end_date.format('YYYYMMDD')
+        filename = f'trip_summary_{start_str}_to_{end_str}.json'
+        func = partial(self.make_trip_summary_inner, feed_start_date, feed_end_date)
+        return self.file_manager.retrieve_calculated_dataframe(
+            filename, func, ['raw_date', 'start_date_dt', 'end_date_dt'])
+
+    def make_trip_summary_inner(
+        self,
+        feed_start_date: pendulum.datetime = None,
         feed_end_date: pendulum.datetime = None) -> pd.DataFrame:
-    """Create a summary of trips with one row per date
+        """Create a summary of trips with one row per date
 
-    Args:
-        data (GTFSFeed): GTFS data from CTA
-        feed_start_date (datetime): Date from which this feed is valid (inclusive).
-            Defaults to None
-        feed_end_date (datetime): Date until which this feed is valid (inclusive).
-            Defaults to None
+        Args:
+            data (GTFSFeed): GTFS data from CTA
+            feed_start_date (datetime): Date from which this feed is valid (inclusive).
+                Defaults to None
+            feed_end_date (datetime): Date until which this feed is valid (inclusive).
+                Defaults to None
 
-    Returns:
-        pd.DataFrame: A DataFrame with each trip that occurred per row.
-    """
-    # construct a datetime index that has every day between calendar start and
-    # end
-    calendar_date_range = pd.DataFrame(
-        pd.date_range(
-            min(data.calendar.start_date_dt),
-            max(data.calendar.end_date_dt)
-        ),
-        columns=["raw_date"],
-    )
-     
-    # cross join calendar index with actual calendar to get all combos of
-    # possible dates & services
-    calendar_cross = calendar_date_range.merge(data.calendar, how="cross")
-
-    # extract day of week from date index date
-    calendar_cross["dayofweek"] = calendar_cross["raw_date"].dt.dayofweek
-
-    # take wide calendar data (one col per day of week) and make it long (one
-    # row per day of week)
-    actual_service = calendar_cross.melt(
-        id_vars=[
-            "raw_date",
-            "start_date_dt",
-            "end_date_dt",
-            "start_date",
-            "end_date",
-            "service_id",
-            "dayofweek",
-        ],
-        var_name="cal_dayofweek",
-        value_name="cal_val",
-    )
-
-    # map the calendar input strings to day of week integers to align w pandas
-    # dayofweek output
-    actual_service["cal_daynum"] = (
-        actual_service["cal_dayofweek"].str.title().map(
-            dict(zip(calendar.day_name, range(7)))
+        Returns:
+            pd.DataFrame: A DataFrame with each trip that occurred per row.
+        """
+        data = self.gtfs_feed
+        logging.info(f'Callling make_trip_summary_inner with {feed_start_date}, {feed_end_date}')
+        # construct a datetime index that has every day between calendar start and
+        # end
+        calendar_date_range = pd.DataFrame(
+            pd.date_range(
+                min(data.calendar.start_date_dt),
+                max(data.calendar.end_date_dt)
+            ),
+            columns=["raw_date"],
         )
-    )
-    # now check for rows that "work"
-    # i.e., the day of week matches between datetime index & calendar input
-    # and the datetime index is between the calendar row's start and end dates
-    actual_service = actual_service[
-        (actual_service.dayofweek == actual_service.cal_daynum)
-        & (actual_service.start_date_dt <= actual_service.raw_date)
-        & (actual_service.end_date_dt >= actual_service.raw_date)
-    ]
 
-    # now merge in calendar dates to the datetime index to get overrides
-    actual_service = actual_service.merge(
-        data.calendar_dates,
-        how="outer",
-        left_on=["raw_date", "service_id"],
-        right_on=["date_dt", "service_id"],
-    )
+        # cross join calendar index with actual calendar to get all combos of
+        # possible dates & services
+        calendar_cross = calendar_date_range.merge(data.calendar, how="cross")
 
-    # now add a service happened flag for dates where the schedule
-    # indicates that this service occurred
-    # i.e.: calendar has a service indicator of 1 and there's no
-    # exception type from calendar_dates
-    # OR calendar_dates has exception type of 1
-    # otherwise no service
-    # https://stackoverflow.com/questions/21415661/logical-operators-for-boolean-indexing-in-pandas
-    actual_service["service_happened"] = (
-        (actual_service["cal_val"] == "1")
-        & (actual_service["exception_type"].isnull())
-    ) | (actual_service["exception_type"] == "1")
+        # extract day of week from date index date
+        calendar_cross["dayofweek"] = calendar_cross["raw_date"].dt.dayofweek
 
-    # now fill in rows where calendar_dates had a date outside the bounds of
-    # the datetime index, so raw_date is always populated
-    actual_service["raw_date"] = actual_service["raw_date"].fillna(
-        actual_service["date_dt"]
-    )
+        # take wide calendar data (one col per day of week) and make it long (one
+        # row per day of week)
+        actual_service = calendar_cross.melt(
+            id_vars=[
+                "raw_date",
+                "start_date_dt",
+                "end_date_dt",
+                "start_date",
+                "end_date",
+                "service_id",
+                "dayofweek",
+            ],
+            var_name="cal_dayofweek",
+            value_name="cal_val",
+        )
 
-    # filter to only rows where service occurred
-    service_happened = actual_service[actual_service.service_happened]
+        # map the calendar input strings to day of week integers to align w pandas
+        # dayofweek output
+        actual_service["cal_daynum"] = (
+            actual_service["cal_dayofweek"].str.title().map(
+                dict(zip(calendar.day_name, range(7)))
+            )
+        )
+        # now check for rows that "work"
+        # i.e., the day of week matches between datetime index & calendar input
+        # and the datetime index is between the calendar row's start and end dates
+        actual_service = actual_service[
+            (actual_service.dayofweek == actual_service.cal_daynum)
+            & (actual_service.start_date_dt <= actual_service.raw_date)
+            & (actual_service.end_date_dt >= actual_service.raw_date)
+        ]
 
-    # join trips to only service that occurred
-    trips_happened = data.trips.merge(
-        service_happened, how="left", on="service_id")
+        # now merge in calendar dates to the datetime index to get overrides
+        actual_service = actual_service.merge(
+            data.calendar_dates,
+            how="outer",
+            left_on=["raw_date", "service_id"],
+            right_on=["date_dt", "service_id"],
+        )
 
-    # get only the trip / hour combos that actually occurred
-    trip_stop_hours = data.stop_times.drop_duplicates(
-        ["trip_id", "arrival_hour"]
-    )
-    # now join
-    # result has one row per date + row from trips.txt (incl. route) + hour
-    trip_summary = trips_happened.merge(
-        trip_stop_hours, how="left", on="trip_id")
+        # now add a service happened flag for dates where the schedule
+        # indicates that this service occurred
+        # i.e.: calendar has a service indicator of 1 and there's no
+        # exception type from calendar_dates
+        # OR calendar_dates has exception type of 1
+        # otherwise no service
+        # https://stackoverflow.com/questions/21415661/logical-operators-for-boolean-indexing-in-pandas
+        actual_service["service_happened"] = (
+            (actual_service["cal_val"] == "1")
+            & (actual_service["exception_type"].isnull())
+        ) | (actual_service["exception_type"] == "1")
 
-    # filter to only the rows for the period where this specific feed version was in effect
-    if feed_start_date is not None and feed_end_date is not None:
-        trip_summary = trip_summary.loc[
-            (trip_summary['raw_date'] >= feed_start_date)
-            & (trip_summary['raw_date'] <= feed_end_date), :]
+        # now fill in rows where calendar_dates had a date outside the bounds of
+        # the datetime index, so raw_date is always populated
+        actual_service["raw_date"] = actual_service["raw_date"].fillna(
+            actual_service["date_dt"]
+        )
 
-    return trip_summary
+        # filter to only rows where service occurred
+        service_happened = actual_service[actual_service.service_happened]
+
+        # join trips to only service that occurred
+        trips_happened = data.trips.merge(
+            service_happened, how="left", on="service_id")
+
+        # get only the trip / hour combos that actually occurred
+        trip_stop_hours = data.stop_times.drop_duplicates(
+            ["trip_id", "arrival_hour"]
+        )
+        # now join
+        # result has one row per date + row from trips.txt (incl. route) + hour
+        trip_summary = trips_happened.merge(
+            trip_stop_hours, how="left", on="trip_id")
+
+        # filter to only the rows for the period where this specific feed version was in effect
+        if feed_start_date is not None and feed_end_date is not None:
+            trip_summary = trip_summary.loc[
+                (trip_summary['raw_date'] >= feed_start_date)
+                & (trip_summary['raw_date'] <= feed_end_date), :]
+
+        return trip_summary
 
 
 def group_trips(
@@ -309,6 +362,7 @@ def group_trips(
             "raw_date": "date"},
         inplace=True
     )
+    print(f'summary date: {summary.date}, type {type(summary.date)}')
     summary.date = summary.date.dt.date
     return summary
 
@@ -358,7 +412,7 @@ def download_cta_zip() -> Tuple[zipfile.ZipFile, BytesIO]:
         zipfile.ZipFile: A zipfile of the latest GTFS schedule data from transitchicago.com
     """
     logger.info('Downloading CTA data')
-    fm = FileManager()
+    fm = FileManager("downloads")
     zip_bytes_io = fm.retrieve(
         'google_transit.zip',
         "https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
@@ -380,7 +434,7 @@ def download_zip(version_id: str) -> zipfile.ZipFile:
         zipfile.ZipFile: A zipfile for the CTA version id.
     """
     logger.info('Downloading CTA data')
-    fm = FileManager()
+    fm = FileManager("downloads")
     CTA_GTFS = zipfile.ZipFile(
         fm.retrieve(f'{version_id}.zip',
                     f"https://transitfeeds.com/p/chicago-transit-authority"

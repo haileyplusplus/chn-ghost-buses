@@ -65,7 +65,8 @@ def save_csv_to_bucket(df: pd.DataFrame, filename: str) -> None:
 def save_sched_daily_summary() -> None:
     data = sga.GTFSFeed.extract_data(CTA_GTFS)
     data = sga.format_dates_hours(data)
-    trip_summary = sga.make_trip_summary(data)
+    schedule = sga.Schedule(data)
+    trip_summary = schedule.make_trip_summary()
 
     route_daily_summary = (
         sga.summarize_date_rt(trip_summary)

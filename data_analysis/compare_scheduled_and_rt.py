@@ -354,7 +354,8 @@ class Summarizer:
         data = static_gtfs_analysis.format_dates_hours(data)
 
         logger.info("\nSummarizing trip data")
-        trip_summary = static_gtfs_analysis.make_trip_summary(data,
+        schedule = static_gtfs_analysis.Schedule(data)
+        trip_summary = schedule.make_trip_summary(
             pendulum.from_format(feed['feed_start_date'], 'YYYY-MM-DD'),
             pendulum.from_format(feed['feed_end_date'], 'YYYY-MM-DD'))
 
