@@ -345,16 +345,17 @@ class Summarizer:
             f"{schedule_version}"
         )
         CTA_GTFS = static_gtfs_analysis.download_zip(schedule_version)
-        logger.info("\nExtracting data")
-        data = static_gtfs_analysis.GTFSFeed.extract_data(
+        schedule = static_gtfs_analysis.Schedule(None)
+        logger.info("\nMaybe extracting data")
+        schedule.defer_schedule_extraction(
             CTA_GTFS,
-            version_id=schedule_version,
-            cta_download=False
+            schedule_version,
+            False
         )
-        data = static_gtfs_analysis.format_dates_hours(data)
+        #data = static_gtfs_analysis.format_dates_hours(data)
 
         logger.info("\nSummarizing trip data")
-        schedule = static_gtfs_analysis.Schedule(data)
+
         trip_summary = schedule.make_trip_summary(
             pendulum.from_format(feed['feed_start_date'], 'YYYY-MM-DD'),
             pendulum.from_format(feed['feed_end_date'], 'YYYY-MM-DD'))

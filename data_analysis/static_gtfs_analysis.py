@@ -200,6 +200,22 @@ class Schedule:
     def __init__(self, gtfs_feed):
         self.gtfs_feed = gtfs_feed
         self.file_manager = FileManager("schedules")
+        self.deferred = None
+
+    def defer_schedule_extraction(self, *args):
+        # cta_zipfile, version_id, cta_download
+        self.deferred = args
+
+    def load_deferred(self):
+        assert self.deferred is not None
+        self.gtfs_feed = GTFSFeed.extract_data(*self.deferred)
+        # data = static_gtfs_analysis.GTFSFeed.extract_data(
+        #     CTA_GTFS,
+        #     version_id=schedule_version,
+        #     cta_download=False
+        # )
+        self.gtfs_feed = format_dates_hours(self.gtfs_feed)
+
 
     def make_trip_summary(self,
                           feed_start_date: pendulum.datetime = None,
@@ -232,6 +248,10 @@ class Schedule:
         Returns:
             pd.DataFrame: A DataFrame with each trip that occurred per row.
         """
+        if self.gtfs_feed is None:
+            self.load_deferred()
+            self.deferred = None
+        assert self.gtfs_feed is not None
         data = self.gtfs_feed
         logging.info(f'Callling make_trip_summary_inner with {feed_start_date}, {feed_end_date}')
         # construct a datetime index that has every day between calendar start and
