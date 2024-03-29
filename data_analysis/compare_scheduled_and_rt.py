@@ -389,11 +389,11 @@ class Summarizer:
             f"\nDownloading zip file for schedule version "
             f"{schedule_version}"
         )
-        CTA_GTFS = static_gtfs_analysis.download_zip(schedule_version)
+        cta_gtfs = static_gtfs_analysis.download_zip(schedule_version)
         schedule = static_gtfs_analysis.Schedule(None)
         logger.info("\nMaybe extracting data")
         schedule.defer_schedule_extraction(
-            CTA_GTFS,
+            cta_gtfs,
             schedule_version,
             False
         )

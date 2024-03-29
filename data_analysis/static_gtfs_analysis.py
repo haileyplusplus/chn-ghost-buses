@@ -43,8 +43,8 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
-#IGNORE = '20230211'
-IGNORE = 's'
+IGNORE = '20230211'
+#IGNORE = 's'
 
 class FileManager:
     def __init__(self, subdir):
@@ -217,7 +217,7 @@ class Schedule:
         assert self.deferred is not None
         self.gtfs_feed = GTFSFeed.extract_data(*self.deferred)
         # data = static_gtfs_analysis.GTFSFeed.extract_data(
-        #     CTA_GTFS,
+        #     cta_gtfs,
         #     version_id=schedule_version,
         #     cta_download=False
         # )
@@ -446,9 +446,9 @@ def download_cta_zip() -> Tuple[zipfile.ZipFile, BytesIO]:
         'google_transit.zip',
         "https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
     )
-    CTA_GTFS = zipfile.ZipFile(zip_bytes_io)
+    cta_gtfs = zipfile.ZipFile(zip_bytes_io)
     logging.info('Download complete')
-    return CTA_GTFS, zip_bytes_io
+    return cta_gtfs, zip_bytes_io
  
 
 
@@ -464,14 +464,14 @@ def download_zip(version_id: str) -> zipfile.ZipFile:
     """
     logger.info('Downloading CTA data')
     fm = FileManager("downloads")
-    CTA_GTFS = zipfile.ZipFile(
+    cta_gtfs = zipfile.ZipFile(
         fm.retrieve(f'{version_id}.zip',
                     f"https://transitfeeds.com/p/chicago-transit-authority"
                     f"/165/{version_id}/download"
                     )
     )
     logging.info('Download complete')
-    return CTA_GTFS
+    return cta_gtfs
 
 
 def download_extract_format(version_id: str = None) -> GTFSFeed:
@@ -487,10 +487,10 @@ def download_extract_format(version_id: str = None) -> GTFSFeed:
         GTFSFeed: A GTFSFeed object with formated dates
     """
     if version_id is None:
-        CTA_GTFS, _ = download_cta_zip()
+        cta_gtfs, _ = download_cta_zip()
     else:
-        CTA_GTFS = download_zip(version_id)
-    data = GTFSFeed.extract_data(CTA_GTFS, version_id=version_id)
+        cta_gtfs = download_zip(version_id)
+    data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
     data = format_dates_hours(data)
     return data
 

@@ -37,12 +37,26 @@ class ScheduleFeedInfo:
                    start_date.format("YYYY-MM-DD"),
                    end_date.format("YYYY-MM-DD"))
 
+    def interval(self):
+        start = pendulum.parse(self.feed_start_date)
+        end = pendulum.parse(self.feed_end_date)
+        return pendulum.interval(start, end)
+
+    def contains(self, date_str: str) -> bool:
+        d = pendulum.parse(date_str)
+        return d in self.interval()
+
 
 class ScheduleManager:
     def __init__(self, month: int, year: int, start2022: bool = True):
         self.month = month
         self.year = year
         self.start2022 = start2022
+        self.schedule_list: List[pendulum.date] = []
+        self.start_end_list: List[Tuple[pendulum.date, pendulum.date]] = []
+        self.schedule_feed_infos: List[ScheduleFeedInfo] = []
+        self.calculate_version_date_ranges()
+        self.create_schedule_list_dict()
 
     def check_latest_rt_data_date(self) -> str:
         """Fetch the latest available date of real-time bus data
@@ -149,7 +163,8 @@ class ScheduleManager:
         return date_list
 
 
-    def calculate_version_date_ranges(self) -> Tuple[List[pendulum.date], List[Tuple[pendulum.date, pendulum.date]]]:
+    def calculate_version_date_ranges(self):
+        #-> Tuple[List[pendulum.date], List[Tuple[pendulum.date, pendulum.date]]]:
         """Get the start and end dates for each schedule version from the most
             recent version to the version specified by the month and year
 
@@ -185,13 +200,11 @@ class ScheduleManager:
         start_end_list.append(
             (schedule_list[-1].add(days=1), self.check_latest_rt_data_date())
         )
-        return schedule_list, start_end_list
+        self.schedule_list = schedule_list
+        self.start_end_list = start_end_list
 
 
-    def create_schedule_list_dict(
-        self,
-        schedule_list: List[pendulum.date],
-            start_end_list: List[Tuple[pendulum.date, pendulum.date]]) -> List[ScheduleFeedInfo]:
+    def create_schedule_list_dict(self):
         """Create a list of dictionaries with keys for the schedule_version,
            start_date, and end_date
 
@@ -206,14 +219,17 @@ class ScheduleManager:
                 corresponding to each schedule version.
         """
         schedule_list_dict = []
-        for version, (start_date, end_date) in zip(schedule_list, start_end_list):
+        for version, (start_date, end_date) in zip(self.schedule_list, self.start_end_list):
             # Changing back the starting version to 20220507
             if version == pendulum.date(2022, 5, 19):
                 version = pendulum.date(2022, 5, 7)
             schedule_dict = ScheduleFeedInfo.from_pendulum(version, start_date, end_date)
             print(f'sd: {schedule_dict}')
             schedule_list_dict.append(schedule_dict)
-        return schedule_list_dict
+        self.schedule_feed_infos = schedule_list_dict
+
+    def get_schedule_list_dict(self):
+        return self.schedule_feed_infos
 
 
 def create_schedule_list(month: int, year: int, start2022: bool = True) -> List[ScheduleFeedInfo]:
@@ -237,8 +253,4 @@ def create_schedule_list(month: int, year: int, start2022: bool = True) -> List[
         year=year,
         start2022=start2022
     )
-    schedule_list, start_end_list = manager.calculate_version_date_ranges()
-    return manager.create_schedule_list_dict(
-        schedule_list=schedule_list,
-        start_end_list=start_end_list
-    )
+    return manager.get_schedule_list_dict()
