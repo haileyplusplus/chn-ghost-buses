@@ -104,11 +104,32 @@ def sum_by_frequency(
     return out
 
 
+def rt_summarize(rt_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
+    rt_df = rt_df.copy()
+
+    logging.info('rt df')
+    rt_freq_by_rte = sum_by_frequency(
+        rt_df,
+        agg_info=agg_info
+    )
+    return rt_freq_by_rte
+
+def sched_summarize(sched_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
+    sched_df = sched_df.copy()
+
+    logging.info('sched df')
+    sched_freq_by_rte = sum_by_frequency(
+        sched_df,
+        agg_info=agg_info
+    )
+    return sched_freq_by_rte
+
+
+# now the main combiner of parallel dfs of summarized rt and summarized schedule data
 def sum_trips_by_rt_by_freq(
-    rt_df: pd.DataFrame,
-    sched_df: pd.DataFrame,
-    agg_info: AggInfo,
-        holidays: List[str] = ["2022-05-30", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    rt_freq_by_rte: pd.DataFrame,
+    sched_freq_by_rte: pd.DataFrame,
+    holidays: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Calculate ratio of trips to scheduled trips per route
        per specified frequency.
 
@@ -127,21 +148,7 @@ def sum_trips_by_rt_by_freq(
             scheduled trips.
     """
 
-    rt_df = rt_df.copy()
-    sched_df = sched_df.copy()
-    print(f'>> sum_trips_by_rt_by_freq: in rt_df {rt_df} >> strt in {sched_df}')
-
-    logging.info('rt df')
-    rt_freq_by_rte = sum_by_frequency(
-        rt_df,
-        agg_info=agg_info
-    )
-
-    logging.info('sched df')
-    sched_freq_by_rte = sum_by_frequency(
-        sched_df,
-        agg_info=agg_info
-    )
+    print(f'>> sum_trips_by_rt_by_freq: in rt_df {rt_freq_by_rte} >> strt in {sched_freq_by_rte}')
 
     compare_freq_by_rte = rt_freq_by_rte.merge(
         sched_freq_by_rte,
@@ -276,6 +283,8 @@ class Combiner:
         if rt_raw.empty:
             return pd.DataFrame(), pd.DataFrame()
 
+        print(f'>> combined rt {rt_raw}')
+
         # basic reformatting
         rt = rt_raw.copy()
         schedule = schedule_raw.copy()
@@ -285,10 +294,15 @@ class Combiner:
         rt["route_id"] = rt["rt"]
         schedule["date"] = pd.to_datetime(schedule.date, format="%Y-%m-%d")
 
+        print(f'>> processed rt {rt}')
+
+        # def rt_summarize(rt_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
+        rt_freq_by_rte = rt_summarize(rt, agg_info=self.agg_info)
+        sched_freq_by_rte = sched_summarize(schedule, agg_info=self.agg_info)
+
         compare_freq_by_rte, compare_by_day_type = sum_trips_by_rt_by_freq(
-            rt_df=rt,
-            sched_df=schedule,
-            agg_info=self.agg_info,
+            rt_freq_by_rte=rt_freq_by_rte,
+            sched_freq_by_rte=sched_freq_by_rte,
             holidays=self.holidays
         )
 
