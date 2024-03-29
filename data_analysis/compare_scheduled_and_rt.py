@@ -204,6 +204,7 @@ class Combiner:
         self.agg_info = agg_info
         self.holidays = holidays
         self.save = save
+        self.fm = static_gtfs_analysis.FileManager('combined')
 
     def combine_real_time_rt_comparison(
             self) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -218,12 +219,19 @@ class Combiner:
         combined_long = pd.DataFrame()
         combined_grouped = pd.DataFrame()
         for feed in self.pbar:
-            compare_by_day_type, compare_freq_by_rte = self.process_one_feed(feed)
+            # slightly inefficient but easier to cache
+            pfday = lambda: partial(self.process_one_feed, feed)()[0]
+            pffreq = lambda: partial(self.process_one_feed, feed)()[1]
+            compare_by_day_type = self.fm.retrieve_calculated_dataframe(f'{feed.schedule_version}_day.json',
+                                                                        pfday, [])
+            compare_freq_by_rte = self.fm.retrieve_calculated_dataframe(f'{feed.schedule_version}_freq.json',
+                                                                        pffreq, [])
+            #compare_by_day_type, compare_freq_by_rte = self.process_one_feed(feed)
             combined_grouped = pd.concat([combined_grouped, compare_by_day_type])
             combined_long = pd.concat([combined_long, compare_freq_by_rte])
         return combined_long, combined_grouped
 
-    def process_one_feed(self, feed):
+    def process_one_feed(self, feed) -> Tuple[pd.DataFrame, pd.DataFrame]:
         logging.info(f'Process feed {feed}')
         start_date = feed["feed_start_date"]
         end_date = feed["feed_end_date"]
@@ -259,10 +267,14 @@ class Combiner:
             daily_data = make_daily_summary(daily_data)
 
             rt_raw = pd.concat([rt_raw, daily_data])
+        if rt_raw.empty:
+            return pd.DataFrame(), pd.DataFrame()
 
         # basic reformatting
         rt = rt_raw.copy()
         schedule = schedule_raw.copy()
+        if schedule.empty:
+            return pd.DataFrame(), pd.DataFrame()
         rt["date"] = pd.to_datetime(rt.data_date, format="%Y-%m-%d")
         rt["route_id"] = rt["rt"]
         schedule["date"] = pd.to_datetime(schedule.date, format="%Y-%m-%d")
@@ -289,6 +301,10 @@ class Combiner:
                 index=False,
             )
         logger.info(f" Processing version {feed['schedule_version']}")
+        logger.info('compare_by_day_type')
+        logger.info(compare_by_day_type)
+        logger.info('compare_freq_by_rte')
+        logger.info(compare_freq_by_rte)
         return compare_by_day_type, compare_freq_by_rte
 
 
