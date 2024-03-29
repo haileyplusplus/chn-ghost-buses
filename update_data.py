@@ -330,6 +330,10 @@ def main() -> None:
         start_date=start_date,
         end_date=end_date,
     )
+    print(f'combined_long: {combined_long_df}')
+    print(f'summary: {summary_df}')
+    print(f'start date: {start_date}')
+    print(f'end date: {end_date}')
 
     update_interactive_map_data(data_update)
     update_lineplot_data(data_update)

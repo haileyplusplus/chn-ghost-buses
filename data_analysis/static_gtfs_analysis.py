@@ -43,6 +43,7 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
+IGNORE = '20230211'
 
 class FileManager:
     def __init__(self, subdir):
@@ -72,6 +73,9 @@ class FileManager:
 
     def retrieve_calculated_dataframe(self, filename, func, dt_fields: list[str]) -> pd.DataFrame:
         filepath = self.cache_dir / filename
+        if filename.startswith(IGNORE):
+            print(f'Ignoring whether {filename} is in cache')
+            return func()
         if filepath.exists():
             logging.info(f'Retrieved {filename} from cache')
             df = pandas.read_json(filepath)

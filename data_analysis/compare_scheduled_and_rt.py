@@ -63,6 +63,7 @@ def make_daily_summary(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: A summary of full day data by
             date, route, and destination.
     """
+    print(f'>> make_daily_summary in {df}')
     df = df.copy()
     df = (
         df.groupby(["data_date", "rt"])
@@ -72,6 +73,7 @@ def make_daily_summary(df: pd.DataFrame) -> pd.DataFrame:
     df["vh_count"] = df["vid"].apply(len)
     df["trip_count"] = df["tatripid"].apply(len)
     df["block_count"] = df["tablockid"].apply(len)
+    print(f'>> make_daily_summary out {df}')
     return df
 
 
@@ -91,13 +93,15 @@ def sum_by_frequency(
     """
     df = df.copy()
     logging.info(df)
-    return (
+    out = (
         df.set_index(agg_info.byvars)
         .groupby(
             [pd.Grouper(level='date', freq=agg_info.freq),
                 pd.Grouper(level='route_id')])[agg_info.aggvar]
         .sum().reset_index()
     )
+    print(f'>> sum_by_frequency in {df} >> sum_by_frequency out {out}')
+    return out
 
 
 def sum_trips_by_rt_by_freq(
@@ -125,6 +129,7 @@ def sum_trips_by_rt_by_freq(
 
     rt_df = rt_df.copy()
     sched_df = sched_df.copy()
+    print(f'>> sum_trips_by_rt_by_freq: in rt_df {rt_df} >> strt in {sched_df}')
 
     logging.info('rt df')
     rt_freq_by_rte = sum_by_frequency(
@@ -173,6 +178,7 @@ def sum_trips_by_rt_by_freq(
         / compare_by_day_type["trip_count_sched"]
     )
 
+    print(f'>> sum_trips_by_rt_by_freq: st out compare_freq_by_rte {compare_freq_by_rte} >> st out compare_by_day_type {compare_by_day_type}')
     return compare_freq_by_rte, compare_by_day_type
 
 
@@ -335,6 +341,7 @@ class Summarizer:
                 versioned schedule comparisons.
         """
         combined_df = combined_df.copy(deep=True)
+        print(f'build_summary: from {combined_df}')
         summary = (
             combined_df.groupby(["route_id", "day_type"])[
                 ["trip_count_rt", "trip_count_sched"]
@@ -355,6 +362,7 @@ class Summarizer:
                 outpath,
                 index=False,
             )
+        print(f'build_summary: to {summary}')
         return summary
 
     def create_route_daily_summary(self, feed) -> pd.DataFrame:
@@ -388,6 +396,7 @@ class Summarizer:
             .summarize_date_rt(trip_summary)
         )
         route_daily_summary['version'] = schedule_version
+        print(f'RDS: {feed} -> {route_daily_summary}')
         return route_daily_summary
 
     def main(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
