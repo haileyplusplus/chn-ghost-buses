@@ -74,7 +74,7 @@ class FileManager:
 
     def retrieve_calculated_dataframe(self, filename, func, dt_fields: list[str]) -> pd.DataFrame:
         filepath = self.cache_dir / filename
-        if filename.startswith(IGNORE):
+        if filename.replace('-', '').startswith(IGNORE):
             print(f'Ignoring whether {filename} is in cache')
             return func()
         if filepath.exists():
@@ -521,9 +521,10 @@ def main() -> geopandas.GeoDataFrame:
 
     schedule_list = create_schedule_list(5, 2022)
     # Get the latest version
-    version_id = schedule_list[-1].schedule_version
+    latest = schedule_list[-1]
+    provider = ScheduleProvider(None)
 
-    data = download_extract_format(version_id)
+    data = provider.download_extract_format()
 
     # check that there are no dwell periods that cross hour boundary
     cross_hr_bndary = (
