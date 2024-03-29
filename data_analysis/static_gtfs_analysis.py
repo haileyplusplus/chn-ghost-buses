@@ -30,7 +30,9 @@ import shapely
 import geopandas
 
 from tqdm import tqdm
-from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo
+
+import scrape_data.scrape_schedule_versions
+from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo, ScheduleIndexer
 
 VERSION_ID = "20220718"
 BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
@@ -208,6 +210,9 @@ class ScheduleProvider:
         self.gtfs_feed = None
         self.file_manager = FileManager("schedules")
         self.schedule_feed_info = schedule_feed_info
+
+    def schedule_version(self):
+        return self.schedule_feed_info.schedule_version
 
     # def defer_schedule_extraction(self, *args):
     #     # cta_zipfile, version_id, cta_download
@@ -493,6 +498,20 @@ class ScheduleProvider:
         )
 
         return route_daily_summary
+
+
+class ScheduleManager:
+    def __init__(self, month: int, year: int):
+        self.indexer = ScheduleIndexer(
+            month=month,
+            year=year,
+            start2022=True
+        )
+        #return indexer.get_schedule_list_dict()
+
+    def generate_providers(self):
+        for item in self.indexer.schedule_feed_infos:
+            yield ScheduleProvider(item)
 
 
 def make_linestring_of_points(

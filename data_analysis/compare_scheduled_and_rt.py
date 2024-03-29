@@ -231,7 +231,11 @@ class Combiner:
         """
         combined_long = pd.DataFrame()
         combined_grouped = pd.DataFrame()
+        logging.info('Compare rt')
         for feed in self.pbar:
+            logging.info(f'Compare rt feed {feed}')
+            logging.info(f'fn 1:')
+            logging.info(f'{feed.schedule_version}_day.json')
             # slightly inefficient but easier to cache
             pfday = lambda: partial(self.process_one_feed, feed)()[0]
             pffreq = lambda: partial(self.process_one_feed, feed)()[1]
@@ -339,9 +343,11 @@ class Summarizer:
         """
         self.freq = freq
         self.save = save
-        self.schedule_feeds = create_schedule_list(month=5, year=2022)
+        #self.schedule_feeds = create_schedule_list(month=5, year=2022)
+        self.schedule_feeds = []
+        self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
         self.schedule_data_list = []
-        self.pbar = tqdm(self.schedule_feeds)
+        #self.pbar = tqdm(self.schedule_feeds)
         self.fm = static_gtfs_analysis.FileManager('schedule_daily_summary')
 
     def build_summary(self, combined_df: pd.DataFrame) -> pd.DataFrame:
@@ -379,18 +385,18 @@ class Summarizer:
         print(f'build_summary: to {summary}')
         return summary
 
-    def create_route_daily_summary(self, feed) -> pd.DataFrame:
-        schedule_version = feed["schedule_version"]
-        self.pbar.set_description(
-            f"Generating daily schedule data for "
-            f"schedule version {schedule_version}"
-        )
-        logger.info(
-            f"\nDownloading zip file for schedule version "
-            f"{schedule_version}"
-        )
-        schedule = static_gtfs_analysis.ScheduleProvider(feed)
-        return schedule.get_route_daily_summary()
+    # def create_route_daily_summary(self, feed) -> pd.DataFrame:
+    #     schedule_version = feed["schedule_version"]
+    #     self.pbar.set_description(
+    #         f"Generating daily schedule data for "
+    #         f"schedule version {schedule_version}"
+    #     )
+    #     logger.info(
+    #         f"\nDownloading zip file for schedule version "
+    #         f"{schedule_version}"
+    #     )
+    #     schedule = static_gtfs_analysis.ScheduleProvider(feed)
+    #     return schedule.get_route_daily_summary()
 
     def main(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Calculate the summary by route and day across multiple schedule versions
@@ -401,11 +407,15 @@ class Summarizer:
             pd.DataFrame: A DataFrame summary across
                 versioned schedule comparisons.
         """
-        for feed in self.pbar:
-            schedule_version = feed["schedule_version"]
-            dailygetter = partial(self.create_route_daily_summary, feed)
-            route_daily_summary = self.fm.retrieve_calculated_dataframe(f'{schedule_version}.json', dailygetter, [])
+        for feed in tqdm(self.schedule_manager.generate_providers()):
+            schedule_version = feed.schedule_version()
+            #dailygetter = partial(self.create_route_daily_summary, feed)
+            dailygetter = feed.get_route_daily_summary()
+            filename = f'{schedule_version}.json'
+            logger.info(f'csrt main attempting to retrieve top-level {filename}')
+            route_daily_summary = self.fm.retrieve_calculated_dataframe(filename, dailygetter, [])
             #route_daily_summary = self.create_route_daily_summary(feed)
+            self.schedule_feeds.append(feed.schedule_feed_info)
             self.schedule_data_list.append(
                 {"schedule_version": schedule_version,
                  "data": route_daily_summary}

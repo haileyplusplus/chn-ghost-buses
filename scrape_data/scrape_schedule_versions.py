@@ -248,9 +248,9 @@ def create_schedule_list(month: int, year: int, start2022: bool = True) -> List[
             corresponding to each schedule version.
     """
     #schedule_list, start_end_list = calculate_version_date_ranges(
-    manager = ScheduleIndexer(
+    indexer = ScheduleIndexer(
         month=month,
         year=year,
         start2022=start2022
     )
-    return manager.get_schedule_list_dict()
+    return indexer.get_schedule_list_dict()
