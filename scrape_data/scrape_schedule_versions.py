@@ -47,7 +47,7 @@ class ScheduleFeedInfo:
         return d in self.interval()
 
 
-class ScheduleManager:
+class ScheduleIndexer:
     def __init__(self, month: int, year: int, start2022: bool = True):
         self.month = month
         self.year = year
@@ -248,7 +248,7 @@ def create_schedule_list(month: int, year: int, start2022: bool = True) -> List[
             corresponding to each schedule version.
     """
     #schedule_list, start_end_list = calculate_version_date_ranges(
-    manager = ScheduleManager(
+    manager = ScheduleIndexer(
         month=month,
         year=year,
         start2022=start2022

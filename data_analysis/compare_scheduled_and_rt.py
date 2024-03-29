@@ -389,29 +389,8 @@ class Summarizer:
             f"\nDownloading zip file for schedule version "
             f"{schedule_version}"
         )
-        cta_gtfs = static_gtfs_analysis.download_zip(schedule_version)
-        schedule = static_gtfs_analysis.Schedule(None)
-        logger.info("\nMaybe extracting data")
-        schedule.defer_schedule_extraction(
-            cta_gtfs,
-            schedule_version,
-            False
-        )
-        #data = static_gtfs_analysis.format_dates_hours(data)
-
-        logger.info("\nSummarizing trip data")
-
-        trip_summary = schedule.make_trip_summary(
-            pendulum.from_format(feed['feed_start_date'], 'YYYY-MM-DD'),
-            pendulum.from_format(feed['feed_end_date'], 'YYYY-MM-DD'))
-
-        route_daily_summary = (
-            static_gtfs_analysis
-            .summarize_date_rt(trip_summary)
-        )
-        route_daily_summary['version'] = schedule_version
-        print(f'RDS: {feed} -> {route_daily_summary}')
-        return route_daily_summary
+        schedule = static_gtfs_analysis.ScheduleProvider(feed)
+        return schedule.get_route_daily_summary()
 
     def main(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Calculate the summary by route and day across multiple schedule versions

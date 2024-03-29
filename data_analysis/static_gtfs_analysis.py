@@ -30,7 +30,7 @@ import shapely
 import geopandas
 
 from tqdm import tqdm
-from scrape_data.scrape_schedule_versions import create_schedule_list
+from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo
 
 VERSION_ID = "20220718"
 BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
@@ -203,26 +203,41 @@ def format_dates_hours(data: GTFSFeed) -> GTFSFeed:
     return data
 
 
-class Schedule:
-    def __init__(self, gtfs_feed):
-        self.gtfs_feed = gtfs_feed
+class ScheduleProvider:
+    def __init__(self, schedule_feed_info : ScheduleFeedInfo):
+        self.gtfs_feed = None
         self.file_manager = FileManager("schedules")
-        self.deferred = None
+        self.schedule_feed_info = schedule_feed_info
 
-    def defer_schedule_extraction(self, *args):
-        # cta_zipfile, version_id, cta_download
-        self.deferred = args
+    # def defer_schedule_extraction(self, *args):
+    #     # cta_zipfile, version_id, cta_download
+    #     self.deferred = args
 
-    def load_deferred(self):
-        assert self.deferred is not None
-        self.gtfs_feed = GTFSFeed.extract_data(*self.deferred)
-        # data = static_gtfs_analysis.GTFSFeed.extract_data(
+    def get_route_daily_summary(self):
+        cta_gtfs = self.download_zip()
+
+        logger.info("\nMaybe extracting data")
+        # schedule.defer_schedule_extraction(
         #     cta_gtfs,
-        #     version_id=schedule_version,
-        #     cta_download=False
+        #     schedule_version,
+        #     False
         # )
-        self.gtfs_feed = format_dates_hours(self.gtfs_feed)
+        #data = static_gtfs_analysis.format_dates_hours(data)
 
+        logger.info("\nSummarizing trip data")
+
+        feed = self.schedule_feed_info
+        trip_summary = self.make_trip_summary(
+            pendulum.from_format(feed['feed_start_date'], 'YYYY-MM-DD'),
+            pendulum.from_format(feed['feed_end_date'], 'YYYY-MM-DD'))
+
+        route_daily_summary = (
+            self
+            .summarize_date_rt(trip_summary)
+        )
+        route_daily_summary['version'] = self.schedule_feed_info.schedule_version
+        print(f'RDS: {feed} -> {route_daily_summary}')
+        return route_daily_summary
 
     def make_trip_summary(self,
                           feed_start_date: pendulum.datetime = None,
@@ -256,8 +271,8 @@ class Schedule:
             pd.DataFrame: A DataFrame with each trip that occurred per row.
         """
         if self.gtfs_feed is None:
-            self.load_deferred()
-            self.deferred = None
+            self.gtfs_feed = GTFSFeed.extract_data(*self.deferred)
+            self.gtfs_feed = format_dates_hours(self.gtfs_feed)
         assert self.gtfs_feed is not None
         data = self.gtfs_feed
         logging.info(f'Callling make_trip_summary_inner with {feed_start_date}, {feed_end_date}')
@@ -360,62 +375,124 @@ class Schedule:
 
         return trip_summary
 
+    @staticmethod
+    def download_cta_zip() -> Tuple[zipfile.ZipFile, BytesIO]:
+        """Download CTA schedule data from transitchicago.com
 
-def group_trips(
-    trip_summary: pd.DataFrame,
-        groupby_vars: list) -> pd.DataFrame:
-    """Generate summary grouped by groupby_vars
+        Returns:
+            zipfile.ZipFile: A zipfile of the latest GTFS schedule data from transitchicago.com
+        """
+        logger.info('Downloading CTA data')
+        fm = FileManager("downloads")
+        zip_bytes_io = fm.retrieve(
+            'google_transit.zip',
+            "https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
+        )
+        cta_gtfs = zipfile.ZipFile(zip_bytes_io)
+        logging.info('Download complete')
+        return cta_gtfs, zip_bytes_io
 
-    Args:
-        trip_summary (pd.DataFrame): A DataFrame of one trip per row i.e.
-            the output of the make_trip_summary function.
-        groupby_vars (list): Variables to group by.
+    def download_zip(self) -> zipfile.ZipFile:
+        """Download a version schedule from transitfeeds.com
 
-    Returns:
-        pd.DataFrame: A DataFrame with the trip count by groupby_vars e.g.
-            route and date.
-    """
-    if trip_summary.empty:
-        return pd.DataFrame()
-    trip_summary = trip_summary.copy()
-    summary = (
-        trip_summary.groupby(by=groupby_vars)
-        ["trip_id"]
-        .nunique()
-        .reset_index()
-    )
+        Args:
+            version_id (str): The version schedule in the form
+                of a date e.g. YYYYMMDD
 
-    summary.rename(
-        columns={
-            "trip_id": "trip_count",
-            "raw_date": "date"},
-        inplace=True
-    )
-    print(f'summary date: {summary.date}, type {type(summary.date)}')
-    summary.date = summary.date.dt.date
-    return summary
+        Returns:
+            zipfile.ZipFile: A zipfile for the CTA version id.
+        """
+        version_id = self.schedule_feed_info.schedule_version
+        logger.info('Downloading CTA data')
+        fm = FileManager("downloads")
+        cta_gtfs = zipfile.ZipFile(
+            fm.retrieve(f'{version_id}.zip',
+                        f"https://transitfeeds.com/p/chicago-transit-authority"
+                        f"/165/{version_id}/download"
+                        )
+        )
+        logging.info('Download complete')
+        return cta_gtfs
 
 
-def summarize_date_rt(trip_summary: pd.DataFrame) -> pd.DataFrame:
-    """Summarize trips by date and route
+    def download_extract_format(self) -> GTFSFeed:
+        """Download a zipfile of GTFS data for a given version_id,
+            extract data, and format date column.
 
-    Args:
-        trip_summary (pd.DataFrame): a summary of trips with one row per date.
-            Output of the make_trip_summary function.
+        Args:
+            version_id (str): The version of the GTFS schedule data to download. Defaults to None
+                If version_id is None, data will be downloaded from the CTA directly (transitchicag.com)
+                instead of transitfeeds.com
 
-    Returns:
-        pd.DataFrame: A DataFrame grouped by date and route
-    """
-    trip_summary = trip_summary.copy()
-    groupby_vars = ["raw_date", "route_id"]
+        Returns:
+            GTFSFeed: A GTFSFeed object with formated dates
+        """
+        if self.schedule_feed_info is None:
+            cta_gtfs, _ = self.download_cta_zip()
+            version_id = None
+        else:
+            cta_gtfs = self.download_zip()
+            version_id = self.schedule_feed_info.schedule_version
+        data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
+        data = format_dates_hours(data)
+        return data
 
-    # group to get trips by date by route
-    route_daily_summary = group_trips(
-        trip_summary,
-        groupby_vars=groupby_vars,
-    )
+    @staticmethod
+    def group_trips(
+        trip_summary: pd.DataFrame,
+            groupby_vars: list) -> pd.DataFrame:
+        """Generate summary grouped by groupby_vars
 
-    return route_daily_summary
+        Args:
+            trip_summary (pd.DataFrame): A DataFrame of one trip per row i.e.
+                the output of the make_trip_summary function.
+            groupby_vars (list): Variables to group by.
+
+        Returns:
+            pd.DataFrame: A DataFrame with the trip count by groupby_vars e.g.
+                route and date.
+        """
+        if trip_summary.empty:
+            return pd.DataFrame()
+        trip_summary = trip_summary.copy()
+        summary = (
+            trip_summary.groupby(by=groupby_vars)
+            ["trip_id"]
+            .nunique()
+            .reset_index()
+        )
+
+        summary.rename(
+            columns={
+                "trip_id": "trip_count",
+                "raw_date": "date"},
+            inplace=True
+        )
+        print(f'summary date: {summary.date}, type {type(summary.date)}')
+        summary.date = summary.date.dt.date
+        return summary
+
+    @staticmethod
+    def summarize_date_rt(trip_summary: pd.DataFrame) -> pd.DataFrame:
+        """Summarize trips by date and route
+
+        Args:
+            trip_summary (pd.DataFrame): a summary of trips with one row per date.
+                Output of the make_trip_summary function.
+
+        Returns:
+            pd.DataFrame: A DataFrame grouped by date and route
+        """
+        trip_summary = trip_summary.copy()
+        groupby_vars = ["raw_date", "route_id"]
+
+        # group to get trips by date by route
+        route_daily_summary = ScheduleProvider.group_trips(
+            trip_summary,
+            groupby_vars=groupby_vars,
+        )
+
+        return route_daily_summary
 
 
 def make_linestring_of_points(
@@ -432,67 +509,6 @@ def make_linestring_of_points(
     sub_df = sub_df.copy()
     sorted_df = sub_df.sort_values(by="shape_pt_sequence")
     return shapely.geometry.LineString(list(sorted_df["pt"]))
-
-
-def download_cta_zip() -> Tuple[zipfile.ZipFile, BytesIO]:
-    """Download CTA schedule data from transitchicago.com
-
-    Returns:
-        zipfile.ZipFile: A zipfile of the latest GTFS schedule data from transitchicago.com
-    """
-    logger.info('Downloading CTA data')
-    fm = FileManager("downloads")
-    zip_bytes_io = fm.retrieve(
-        'google_transit.zip',
-        "https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
-    )
-    cta_gtfs = zipfile.ZipFile(zip_bytes_io)
-    logging.info('Download complete')
-    return cta_gtfs, zip_bytes_io
- 
-
-
-def download_zip(version_id: str) -> zipfile.ZipFile:
-    """Download a version schedule from transitfeeds.com
-
-    Args:
-        version_id (str): The version schedule in the form
-            of a date e.g. YYYYMMDD
-
-    Returns:
-        zipfile.ZipFile: A zipfile for the CTA version id.
-    """
-    logger.info('Downloading CTA data')
-    fm = FileManager("downloads")
-    cta_gtfs = zipfile.ZipFile(
-        fm.retrieve(f'{version_id}.zip',
-                    f"https://transitfeeds.com/p/chicago-transit-authority"
-                    f"/165/{version_id}/download"
-                    )
-    )
-    logging.info('Download complete')
-    return cta_gtfs
-
-
-def download_extract_format(version_id: str = None) -> GTFSFeed:
-    """Download a zipfile of GTFS data for a given version_id,
-        extract data, and format date column.
-
-    Args:
-        version_id (str): The version of the GTFS schedule data to download. Defaults to None
-            If version_id is None, data will be downloaded from the CTA directly (transitchicag.com)
-            instead of transitfeeds.com
-
-    Returns:
-        GTFSFeed: A GTFSFeed object with formated dates
-    """
-    if version_id is None:
-        cta_gtfs, _ = download_cta_zip()
-    else:
-        cta_gtfs = download_zip(version_id)
-    data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
-    data = format_dates_hours(data)
-    return data
 
 
 def main() -> geopandas.GeoDataFrame:
