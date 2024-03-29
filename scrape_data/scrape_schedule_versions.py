@@ -54,6 +54,7 @@ def check_latest_rt_data_date() -> str:
             pendulum.now("America/Chicago").subtract(days=2)
             .date().format('YYYY-MM-DD')
         )
+    logging.info(f'Latest available rt date: {end_date}')
     return end_date
 
 
@@ -206,6 +207,7 @@ def create_schedule_list_dict(
         if version == pendulum.date(2022, 5, 19):
             version = pendulum.date(2022, 5, 7)
         schedule_dict = ScheduleFeedInfo.from_pendulum(version, start_date, end_date)
+        print(f'sd: {schedule_dict}')
         schedule_list_dict.append(schedule_dict)
     return schedule_list_dict
 

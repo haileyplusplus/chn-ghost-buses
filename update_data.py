@@ -2,6 +2,7 @@ from collections import namedtuple
 import calendar
 
 import pandas as pd
+import numpy
 
 import data_analysis.compare_scheduled_and_rt as csrt
 import data_analysis.plots as plots
@@ -309,6 +310,17 @@ def update_barchart_data(
     )
 
 
+def missing_days(datecol):
+    print(f'Range: {datecol.iloc[0]} to {datecol.iloc[-1]}')
+    prev = None
+    for x in datecol.unique():
+        if prev:
+            dt = x - prev
+            if dt != numpy.timedelta64(1, 'D'):
+                print(f' Missing day around {prev}, {x}')
+        prev = x
+
+
 def main() -> None:
     """Refresh data for interactive map, lineplots, and barcharts."""
     combined_long_df, summary_df = csrt.main(freq="D")
@@ -334,6 +346,8 @@ def main() -> None:
     print(f'summary: {summary_df}')
     print(f'start date: {start_date}')
     print(f'end date: {end_date}')
+
+    missing_days(combined_long_df['date'])
 
     update_interactive_map_data(data_update)
     update_lineplot_data(data_update)

@@ -43,7 +43,8 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
-IGNORE = '20230211'
+#IGNORE = '20230211'
+IGNORE = 's'
 
 class FileManager:
     def __init__(self, subdir):
