@@ -76,6 +76,8 @@ class FileManager:
             logging.info(f'Retrieved {filename} from cache')
             df = pandas.read_json(filepath)
             assert type(df) is pd.DataFrame
+            if df.empty:
+                return pd.DataFrame()
             for c in dt_fields:
                 df = self.fix_dt_column(df, c)
             #print('Retrieved df')
@@ -368,6 +370,8 @@ def group_trips(
         pd.DataFrame: A DataFrame with the trip count by groupby_vars e.g.
             route and date.
     """
+    if trip_summary.empty:
+        return pd.DataFrame()
     trip_summary = trip_summary.copy()
     summary = (
         trip_summary.groupby(by=groupby_vars)

@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Tuple
 import logging
+from functools import partial
 
 # required for pandas to read csv from aws
 import s3fs
@@ -249,6 +250,7 @@ class Combiner:
                 f"{pendulum.now().to_datetime_string()}"
             )
 
+            # realtime bus position data
             daily_data = s3_csv_reader.read_csv(BASE_PATH / f"bus_full_day_data_v2/{date_str}.csv")
             daily_data = make_daily_summary(daily_data)
 
@@ -300,6 +302,7 @@ class Summarizer:
         self.schedule_feeds = create_schedule_list(month=5, year=2022)
         self.schedule_data_list = []
         self.pbar = tqdm(self.schedule_feeds)
+        self.fm = static_gtfs_analysis.FileManager('schedule_daily_summary')
 
     def build_summary(self, combined_df: pd.DataFrame) -> pd.DataFrame:
         """Create a summary by route and day type
@@ -364,6 +367,7 @@ class Summarizer:
             static_gtfs_analysis
             .summarize_date_rt(trip_summary)
         )
+        route_daily_summary['version'] = schedule_version
         return route_daily_summary
 
     def main(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -377,7 +381,9 @@ class Summarizer:
         """
         for feed in self.pbar:
             schedule_version = feed["schedule_version"]
-            route_daily_summary = self.create_route_daily_summary(feed)
+            dailygetter = partial(self.create_route_daily_summary, feed)
+            route_daily_summary = self.fm.retrieve_calculated_dataframe(f'{schedule_version}.json', dailygetter, ['date'])
+            #route_daily_summary = self.create_route_daily_summary(feed)
             self.schedule_data_list.append(
                 {"schedule_version": schedule_version,
                  "data": route_daily_summary}
