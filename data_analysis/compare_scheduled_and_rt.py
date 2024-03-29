@@ -410,7 +410,7 @@ class Summarizer:
         for feed in tqdm(self.schedule_manager.generate_providers()):
             schedule_version = feed.schedule_version()
             #dailygetter = partial(self.create_route_daily_summary, feed)
-            dailygetter = feed.get_route_daily_summary()
+            dailygetter = feed.get_route_daily_summary
             filename = f'{schedule_version}.json'
             logger.info(f'csrt main attempting to retrieve top-level {filename}')
             route_daily_summary = self.fm.retrieve_calculated_dataframe(filename, dailygetter, [])
@@ -435,6 +435,49 @@ def main(freq: str = 'D', save: bool = False):
     summarizer = Summarizer(freq, save)
     return summarizer.main()
 
+"""
+Pending bug to fix
+
+Summarizing trip data
+INFO:root:Callling make_trip_summary with 2022-10-21T00:00:00+00:00, 2022-11-02T00:00:00+00:00
+INFO:root:Retrieved trip_summary_20221021_to_20221102.json from cache
+14it [01:06,  4.73s/it]
+Traceback (most recent call last):
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/.venv/lib/python3.11/site-packages/pandas/core/arrays/datetimes.py", line 2224, in objects_to_datetime64ns
+    result, tz_parsed = tslib.array_to_datetime(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pandas/_libs/tslib.pyx", line 381, in pandas._libs.tslib.array_to_datetime
+  File "pandas/_libs/tslib.pyx", line 469, in pandas._libs.tslib.array_to_datetime
+ValueError: Tz-aware datetime.datetime cannot be converted to datetime64 unless utc=True
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/update_data.py", line 358, in <module>
+    main()
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/update_data.py", line 326, in main
+    combined_long_df, summary_df = csrt.main(freq="D")
+                                   ^^^^^^^^^^^^^^^^^^^
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/compare_scheduled_and_rt.py", line 432, in main
+    return summarizer.main()
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/compare_scheduled_and_rt.py", line 409, in main
+    dailygetter = feed.get_route_daily_summary()
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 235, in get_route_daily_summary
+    trip_summary = self.make_trip_summary(
+                   ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 259, in make_trip_summary
+    return self.file_manager.retrieve_calculated_dataframe(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 89, in retrieve_calculated_dataframe
+    df = self.fix_dt_column(df, c)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 74, in fix_dt_column
+    df[c] = df[c].apply(fixer)
+            ^^^^^^^^^^^^^^^^^^
+
+"""
 
 if __name__ == "__main__":
     main()
