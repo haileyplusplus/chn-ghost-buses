@@ -19,11 +19,13 @@ def read_csv(filename: str | Path) -> pd.DataFrame:
     if isinstance(filename, str):
         filename = Path(filename)
     s3_filename = '/'.join(filename.parts[-2:])
+    memoized_filename = f'{filename.stem}.json'
     logging.info(f'Reading {filename} which is {s3_filename}')
-    #getter = partial(pd.read_csv, f'https://{csrt.BUCKET_PUBLIC}.s3.us-east-2.amazonaws.com/{s3_filename}', low_memory=False)
-    df = pd.read_csv(
-             f'https://{csrt.BUCKET_PUBLIC}.s3.us-east-2.amazonaws.com/{s3_filename}',
-             low_memory=False
-         )
-    return df
+    getter = partial(pd.read_csv, f'https://{csrt.BUCKET_PUBLIC}.s3.us-east-2.amazonaws.com/{s3_filename}', low_memory=False)
+    return csvfm.retrieve_calculated_dataframe(memoized_filename, getter, [])
+    # df = pd.read_csv(
+    #          f'https://{csrt.BUCKET_PUBLIC}.s3.us-east-2.amazonaws.com/{s3_filename}',
+    #          low_memory=False
+    #      )
+    # return df
     

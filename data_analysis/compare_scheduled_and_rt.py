@@ -90,6 +90,7 @@ def sum_by_frequency(
             by a specified frequency.
     """
     df = df.copy()
+    logging.info(df)
     return (
         df.set_index(agg_info.byvars)
         .groupby(
@@ -125,11 +126,13 @@ def sum_trips_by_rt_by_freq(
     rt_df = rt_df.copy()
     sched_df = sched_df.copy()
 
+    logging.info('rt df')
     rt_freq_by_rte = sum_by_frequency(
         rt_df,
         agg_info=agg_info
     )
 
+    logging.info('sched df')
     sched_freq_by_rte = sum_by_frequency(
         sched_df,
         agg_info=agg_info
@@ -221,6 +224,7 @@ class Combiner:
         return combined_long, combined_grouped
 
     def process_one_feed(self, feed):
+        logging.info(f'Process feed {feed}')
         start_date = feed["feed_start_date"]
         end_date = feed["feed_end_date"]
         date_range = [
@@ -382,7 +386,7 @@ class Summarizer:
         for feed in self.pbar:
             schedule_version = feed["schedule_version"]
             dailygetter = partial(self.create_route_daily_summary, feed)
-            route_daily_summary = self.fm.retrieve_calculated_dataframe(f'{schedule_version}.json', dailygetter, ['date'])
+            route_daily_summary = self.fm.retrieve_calculated_dataframe(f'{schedule_version}.json', dailygetter, [])
             #route_daily_summary = self.create_route_daily_summary(feed)
             self.schedule_data_list.append(
                 {"schedule_version": schedule_version,
