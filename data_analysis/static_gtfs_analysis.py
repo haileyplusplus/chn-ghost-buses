@@ -31,7 +31,7 @@ import geopandas
 
 from tqdm import tqdm
 
-import scrape_data.scrape_schedule_versions
+#import scrape_data.scrape_schedule_versions
 from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo, ScheduleIndexer
 
 VERSION_ID = "20220718"

@@ -1,20 +1,13 @@
 import os
 
-from dataclasses import dataclass, field
-from typing import List, Tuple
 import logging
-from functools import partial
 
 # required for pandas to read csv from aws
-import s3fs
 from s3path import S3Path
 import pandas as pd
 import pendulum
 from tqdm import tqdm
-from dotenv import load_dotenv
 
-import data_analysis.static_gtfs_analysis as static_gtfs_analysis
-from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo
 from utils import s3_csv_reader
 
 
