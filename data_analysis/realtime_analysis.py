@@ -3,6 +3,8 @@ import os
 import logging
 
 # required for pandas to read csv from aws
+import boto3
+from botocore import UNSIGNED
 from s3path import S3Path
 import pandas as pd
 import pendulum
