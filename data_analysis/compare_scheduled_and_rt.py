@@ -3,11 +3,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Tuple
 import logging
-import datetime
-from functools import partial
 
-# required for pandas to read csv from aws
-#import s3fs
 from s3path import S3Path
 import pandas as pd
 import pendulum
@@ -141,8 +137,6 @@ def sum_trips_by_rt_by_freq(
             scheduled trips.
     """
 
-    #print(f'>> sum_trips_by_rt_by_freq: in rt_df {rt_freq_by_rte} >> strt in {sched_freq_by_rte}')
-
     compare_freq_by_rte = rt_freq_by_rte.merge(
         sched_freq_by_rte,
         how="inner",
@@ -167,7 +161,6 @@ def sum_trips_by_rt_by_freq(
 
 
     # compare_freq_by_rte is important, day can be derived
-    #print(f'>> sum_trips_by_rt_by_freq: st out compare_freq_by_rte {compare_freq_by_rte} >> st out compare_by_day_type {compare_by_day_type}')
     return compare_freq_by_rte
 
 
@@ -210,12 +203,6 @@ class Combiner:
             Defaults to ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"].
         save (bool, optional): whether to save the csv file to s3 bucket.
     """
-    # self.pbar = tqdm(schedule_feeds)
-    # self.schedule_data_list = schedule_data_list
-    # self.agg_info = agg_info
-    # self.holidays = holidays
-    # self.save = save
-    # self.fm = static_gtfs_analysis.FileManager('combined')
     def __init__(self, provider, agg_info, holidays):
         self.schedule_provider = provider
         self.rt_provider = RealtimeProvider(provider, agg_info)
@@ -247,27 +234,11 @@ class Combiner:
         #     f"Loading schedule version {feed['schedule_version']}"
         # )
 
-        # schedule_raw = (
-        #     next(
-        #         data_dict["data"] for data_dict in self.schedule_data_list
-        #         if feed["schedule_version"] == data_dict["schedule_version"]
-        #     )
-        # )
-
-        #print(f'>> combined rt {rt_raw}')
-
-        # basic reformatting
-        #schedule = schedule_raw.copy()
         schedule = self.schedule_provider.get_route_daily_summary()
         if schedule.empty:
             return pd.DataFrame()
-        # if schedule.empty:
-        #     return pd.DataFrame(), pd.DataFrame()
         schedule["date"] = pd.to_datetime(schedule.date, format="%Y-%m-%d")
 
-        #print(f'>> processed rt {rt}')
-
-        # def rt_summarize(rt_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
         sched_freq_by_rte = sched_summarize(schedule, agg_info=self.agg_info)
         rt_freq_by_rte = self.rt_provider.provide()
 
@@ -277,7 +248,6 @@ class Combiner:
             holidays=self.holidays
         )
 
-        #compare_by_day_type['feed_version'] = feed['schedule_version']
         compare_freq_by_rte['feed_version'] = feed['schedule_version']
 
         if self.save:
@@ -293,13 +263,9 @@ class Combiner:
                 index=False,
             )
         logger.info(f" Processing version {feed['schedule_version']}")
-        # logger.info('compare_by_day_type')
-        # logger.info(compare_by_day_type)
         logger.info('compare_freq_by_rte')
         logger.info(compare_freq_by_rte)
         # should be able to derive compare_by_day_type from compare_freq_by_rte
-        #self.compare_by_day_type = compare_by_day_type
-        #self.compare_freq_by_rte = compare_freq_by_rte
         return compare_freq_by_rte
 
 
@@ -322,37 +288,11 @@ class Summarizer:
             self.start_date = start_date.date()
         if end_date:
             self.end_date = end_date.date()
-        # if self.start_date is not None:
-        #     month = self.start_date.month
-        #     year = self.start_date.year
-        # else:
-        #     month = 5
-        #     year = 2022
         self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
         self.schedule_data_list = []
-        #self.pbar = tqdm(self.schedule_feeds)
         self.fm = FileManager('schedule_daily_summary')
         self.agg_info = AggInfo(freq=self.freq)
         self.holidays: List[str] = ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]
-
-        # combined_long = pd.DataFrame()
-        # combined_grouped = pd.DataFrame()
-        # logging.info('Compare rt')
-        # for feed in self.pbar:
-        #     logging.info(f'Compare rt feed {feed}')
-        #     logging.info(f'fn 1:')
-        #     logging.info(f'{feed.schedule_version}_day.json')
-        #     # slightly inefficient but easier to cache
-        #     pfday = lambda: partial(self.process_one_feed, feed)()[0]
-        #     pffreq = lambda: partial(self.process_one_feed, feed)()[1]
-        #     compare_by_day_type = self.fm.retrieve_calculated_dataframe(f'{feed.schedule_version}_day.json',
-        #                                                                 pfday, [])
-        #     compare_freq_by_rte = self.fm.retrieve_calculated_dataframe(f'{feed.schedule_version}_freq.json',
-        #                                                                 pffreq, [])
-        #     #compare_by_day_type, compare_freq_by_rte = self.process_one_feed(feed)
-        #     combined_grouped = pd.concat([combined_grouped, compare_by_day_type])
-        #     combined_long = pd.concat([combined_long, compare_freq_by_rte])
-        # return combined_long, combined_grouped
 
     def build_summary(self, combined_df: pd.DataFrame) -> pd.DataFrame:
         """Create a summary by route and day type
@@ -388,19 +328,6 @@ class Summarizer:
             )
         print(f'build_summary: to {summary}')
         return summary
-
-    # def create_route_daily_summary(self, feed) -> pd.DataFrame:
-    #     schedule_version = feed["schedule_version"]
-    #     self.pbar.set_description(
-    #         f"Generating daily schedule data for "
-    #         f"schedule version {schedule_version}"
-    #     )
-    #     logger.info(
-    #         f"\nDownloading zip file for schedule version "
-    #         f"{schedule_version}"
-    #     )
-    #     schedule = static_gtfs_analysis.ScheduleProvider(feed)
-    #     return schedule.get_route_daily_summary()
 
     def main(self, existing=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Calculate the summary by route and day across multiple schedule versions
@@ -441,43 +368,15 @@ class Summarizer:
                 print(f'Using alt start date {new_start_date}')
             if new_end_date:
                 print(f'Using alt end date {new_end_date}')
-            # if new_start_date:
-            #     feed.schedule_feed_info.feed_start_date = new_start_date.strftime('%Y%m%d')
-            # if new_end_date:
-            #     feed.schedule_feed_info.feed_end_date = new_end_date.strftime('%Y%m%d')
-            #schedule_version = feed.schedule_version()
-            #dailygetter = partial(self.create_route_daily_summary, feed)
-            # dailygetter = feed.get_route_daily_summary
-            # filename = f'{schedule_version}.json'
-            # logger.info(f'csrt main attempting to retrieve top-level {filename}')
-            # route_daily_summary = self.fm.retrieve_calculated_dataframe(filename, dailygetter, [])
             combiner = Combiner(feed, agg_info, self.holidays)
             this_iter = combiner.retrieve()
             if this_iter.empty:
                 continue
             if new_start_date:
-                #this_iter = this_iter[datetime.datetime.fromtimestamp(this_iter.date.astype('int')) >= new_start_date]
                 this_iter = this_iter[this_iter.date >= new_start_date.strftime('%Y%m%d')]
             if new_end_date:
                 this_iter = this_iter[this_iter.date <= new_end_date.strftime('%Y%m%d')]
-                #this_iter = this_iter[datetime.datetime.fromtimestamp(this_iter.date.astype('int')) <= new_end_date]
-            #combined_grouped = pd.concat([combined_grouped, combiner.compare_by_day_type])
             combined_long = pd.concat([combined_long, this_iter])
-            #print(f'>> this combiner day {combiner.compare_by_day_type}')
-            #print(f'>> this combiner freq {combiner.compare_freq_by_rte}')
-            #route_daily_summary = self.create_route_daily_summary(feed)
-            #self.schedule_feeds.append(feed.schedule_feed_info)
-            #self.schedule_data_list.append(
-            #    {"schedule_version": schedule_version,
-            #     "data": route_daily_summary}
-            #)
-        # combiner = Combiner(
-        #     self.schedule_feeds,
-        #     schedule_data_list=self.schedule_data_list,
-        #     agg_info=agg_info,
-        #     save=self.save
-        # )
-        #combined_long, combined_grouped = combiner.combine_real_time_rt_comparison()
         combined_grouped = freq_to_day(combined_long)
         return combined_long, self.build_summary(combined_grouped)
 
@@ -485,50 +384,6 @@ class Summarizer:
 def main(freq: str = 'D', save: bool = False, start_date = None, end_date = None, existing=None):
     summarizer = Summarizer(freq, save, start_date, end_date)
     return summarizer.main(existing)
-
-"""
-Pending bug to fix
-
-Summarizing trip data
-INFO:root:Callling make_trip_summary with 2022-10-21T00:00:00+00:00, 2022-11-02T00:00:00+00:00
-INFO:root:Retrieved trip_summary_20221021_to_20221102.json from cache
-14it [01:06,  4.73s/it]
-Traceback (most recent call last):
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/.venv/lib/python3.11/site-packages/pandas/core/arrays/datetimes.py", line 2224, in objects_to_datetime64ns
-    result, tz_parsed = tslib.array_to_datetime(
-                        ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "pandas/_libs/tslib.pyx", line 381, in pandas._libs.tslib.array_to_datetime
-  File "pandas/_libs/tslib.pyx", line 469, in pandas._libs.tslib.array_to_datetime
-ValueError: Tz-aware datetime.datetime cannot be converted to datetime64 unless utc=True
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/update_data.py", line 358, in <module>
-    main()
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/update_data.py", line 326, in main
-    combined_long_df, summary_df = csrt.main(freq="D")
-                                   ^^^^^^^^^^^^^^^^^^^
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/compare_scheduled_and_rt.py", line 432, in main
-    return summarizer.main()
-           ^^^^^^^^^^^^^^^^^
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/compare_scheduled_and_rt.py", line 409, in main
-    dailygetter = feed.get_route_daily_summary()
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 235, in get_route_daily_summary
-    trip_summary = self.make_trip_summary(
-                   ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 259, in make_trip_summary
-    return self.file_manager.retrieve_calculated_dataframe(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 89, in retrieve_calculated_dataframe
-    df = self.fix_dt_column(df, c)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/hailey/forkedcode/stage/chn-ghost-buses/data_analysis/static_gtfs_analysis.py", line 74, in fix_dt_column
-    df[c] = df[c].apply(fixer)
-            ^^^^^^^^^^^^^^^^^^
-
-"""
 
 if __name__ == "__main__":
     main()

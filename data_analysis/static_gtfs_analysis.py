@@ -80,17 +80,6 @@ class GTFSFeed:
             GTFSFeed: A GTFSFeed object containing multiple DataFrames
                 accessible by name.
         """
-        # if cta_download:
-        #     if version_id is not None:
-        #         raise ValueError("version_id is not used for downloads directly from CTA")
-        #     else:
-        #         logging.info(f"Extracting data from transitchicago.com zipfile")
-        #
-        # else:
-        #     if version_id is None:
-        #         version_id = VERSION_ID
-        #     logging.info(f"Extracting data from transitfeeds.com zipfile version {version_id}")
-
         data_dict = {}
         pbar = tqdm(cls.__annotations__.keys())
         for txt_file in pbar:
@@ -173,21 +162,7 @@ class ScheduleProvider:
     def schedule_version(self):
         return self.schedule_feed_info.schedule_version
 
-    # def defer_schedule_extraction(self, *args):
-    #     # cta_zipfile, version_id, cta_download
-    #     self.deferred = args
-
     def get_route_daily_summary(self):
-        #cta_gtfs = self.download_zip()
-
-        logger.info("\nMaybe extracting data")
-        # schedule.defer_schedule_extraction(
-        #     cta_gtfs,
-        #     schedule_version,
-        #     False
-        # )
-        #data = static_gtfs_analysis.format_dates_hours(data)
-
         logger.info("\nSummarizing trip data")
 
         feed = self.schedule_feed_info
@@ -234,11 +209,7 @@ class ScheduleProvider:
         Returns:
             pd.DataFrame: A DataFrame with each trip that occurred per row.
         """
-
-        # def extract_data(cls, gtfs_zipfile: zipfile.ZipFile,
-        #                  version_id: str = None, cta_download: bool = True) -> GTFSFeed:
         if self.gtfs_feed is None:
-            #self.gtfs_feed = GTFSFeed.extract_data(self.download_extract_format(), self.schedule_version(), False)
             self.gtfs_feed = self.download_extract_format()
             self.gtfs_feed = format_dates_hours(self.gtfs_feed)
         assert self.gtfs_feed is not None
@@ -343,46 +314,6 @@ class ScheduleProvider:
 
         return trip_summary
 
-    @staticmethod
-    def download_cta_zip() -> Tuple[zipfile.ZipFile, BytesIO]:
-        """Download CTA schedule data from transitchicago.com
-
-        Returns:
-            zipfile.ZipFile: A zipfile of the latest GTFS schedule data from transitchicago.com
-        """
-        logger.info('Downloading CTA data')
-        fm = FileManager("downloads")
-        zip_bytes_io = fm.retrieve(
-            'google_transit.zip',
-            "https://www.transitchicago.com/downloads/sch_data/google_transit.zip"
-        )
-        cta_gtfs = zipfile.ZipFile(zip_bytes_io)
-        logging.info('Download complete')
-        return cta_gtfs, zip_bytes_io
-
-    def download_zip(self) -> zipfile.ZipFile:
-        """Download a version schedule from transitfeeds.com
-
-        Args:
-            version_id (str): The version schedule in the form
-                of a date e.g. YYYYMMDD
-
-        Returns:
-            zipfile.ZipFile: A zipfile for the CTA version id.
-        """
-        version_id = self.schedule_feed_info.schedule_version
-        logger.info('Downloading CTA data')
-        fm = FileManager("downloads")
-        cta_gtfs = zipfile.ZipFile(
-            fm.retrieve(f'{version_id}.zip',
-                        f"https://transitfeeds.com/p/chicago-transit-authority"
-                        f"/165/{version_id}/download"
-                        )
-        )
-        logging.info('Download complete')
-        return cta_gtfs
-
-
     def download_extract_format(self) -> GTFSFeed:
         """Download a zipfile of GTFS data for a given version_id,
             extract data, and format date column.
@@ -395,16 +326,18 @@ class ScheduleProvider:
         Returns:
             GTFSFeed: A GTFSFeed object with formated dates
         """
-        #if self.schedule_feed_info is None:
-        #    cta_gtfs, _ = self.download_cta_zip()
-        #    version_id = None
-        #else:
         assert self.schedule_feed_info is not None
         version_id = self.schedule_feed_info.schedule_version
         if not self.schedule_feed_info.transitfeeds:
             cta_gtfs = zipfile.ZipFile(GTFS_FETCHER.retrieve_file(version_id))
         else:
-            cta_gtfs = self.download_zip()
+            fm = FileManager("downloads")
+            cta_gtfs = zipfile.ZipFile(
+                fm.retrieve(f'{version_id}.zip',
+                            f"https://transitfeeds.com/p/chicago-transit-authority"
+                            f"/165/{version_id}/download"
+                            )
+            )
         print(f'download {self.schedule_feed_info} version {version_id}')
         data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
         data = format_dates_hours(data)

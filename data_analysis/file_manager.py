@@ -13,8 +13,9 @@ BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
 DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
 
-IGNORE = '20230211'
-#IGNORE = 's'
+#IGNORE = '20230211'
+#IGNORE = '20221020'
+IGNORE = 's'
 
 class FileManager:
     def __init__(self, subdir):
@@ -55,9 +56,8 @@ class FileManager:
         if filepath.exists():
             logging.info(f'Retrieved {filename} from cache')
             if csv:
-                print(f'Reading csv from {filepath}')
+                logging.debug(f'Reading csv from {filepath}')
                 df = pd.read_csv(filepath)
-                print(f'Done reading csv from {filepath}')
             else:
                 df = pd.read_json(filepath)
             assert type(df) is pd.DataFrame

@@ -2,9 +2,6 @@ import os
 
 import logging
 
-# required for pandas to read csv from aws
-import boto3
-from botocore import UNSIGNED
 from s3path import S3Path
 import pandas as pd
 import pendulum
@@ -126,8 +123,5 @@ class RealtimeProvider:
         rt["date"] = pd.to_datetime(rt.data_date, format="%Y-%m-%d")
         rt["route_id"] = rt["rt"]
 
-        ##print(f'>> processed rt {rt}')
-
-        # def rt_summarize(rt_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
         rt_freq_by_rte = self.rt_summarize(rt)
         return rt_freq_by_rte

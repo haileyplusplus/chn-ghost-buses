@@ -5,6 +5,7 @@ import datetime
 
 import pandas as pd
 import numpy
+import logging
 
 import data_analysis.compare_scheduled_and_rt as csrt
 import data_analysis.plots as plots
@@ -340,6 +341,7 @@ def main() -> None:
     parser.add_argument('--start_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--end_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--update', nargs=1, required=False, help="Update all-day comparison file.")
+    parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
     start_date = None
@@ -348,6 +350,15 @@ def main() -> None:
         start_date = datetime.datetime.combine(args.start_date[0], datetime.time(), tzinfo=datetime.UTC)
     if args.end_date:
         end_date = datetime.datetime.combine(args.end_date[0], datetime.time(), tzinfo=datetime.UTC)
+    if args.debug:
+        print(f'Enabling debugging')
+        logger = logging.getLogger()
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s %(levelname)s: %(message)s',
+            datefmt='%m/%d/%Y %I:%M:%S %p'
+        )
+
     existing_df = None
     if args.update:
         u = Updater(args.update[0])
