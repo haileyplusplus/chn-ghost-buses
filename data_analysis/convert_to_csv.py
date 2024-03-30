@@ -12,3 +12,4 @@ if __name__ == "__main__":
         df = pd.read_json(filename)
         df.to_csv(csvfile)
         os.remove(filename)
+        print(f'Converted {filename} to {csvfile}')
