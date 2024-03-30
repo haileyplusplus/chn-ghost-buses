@@ -316,15 +316,19 @@ class Summarizer:
         self.save = save
         #self.schedule_feeds = create_schedule_list(month=5, year=2022)
         self.schedule_feeds = []
-        self.start_date = start_date
-        self.end_date = end_date
-        if self.start_date is not None:
-            month = self.start_date.month
-            year = self.start_date.year
-        else:
-            month = 5
-            year = 2022
-        self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=month, year=year)
+        self.start_date = None
+        self.end_date = None
+        if start_date:
+            self.start_date = start_date.date()
+        if end_date:
+            self.end_date = end_date.date()
+        # if self.start_date is not None:
+        #     month = self.start_date.month
+        #     year = self.start_date.year
+        # else:
+        #     month = 5
+        #     year = 2022
+        self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
         self.schedule_data_list = []
         #self.pbar = tqdm(self.schedule_feeds)
         self.fm = FileManager('schedule_daily_summary')
@@ -398,7 +402,7 @@ class Summarizer:
     #     schedule = static_gtfs_analysis.ScheduleProvider(feed)
     #     return schedule.get_route_daily_summary()
 
-    def main(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def main(self, existing=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Calculate the summary by route and day across multiple schedule versions
 
         Returns:
@@ -408,25 +412,30 @@ class Summarizer:
                 versioned schedule comparisons.
         """
         agg_info = AggInfo(freq=self.freq)
-        combined_long = pd.DataFrame()
+        if existing is not None:
+            combined_long = existing
+        else:
+            combined_long = pd.DataFrame()
         #combined_grouped = pd.DataFrame()
         if self.end_date is not None:
             logger.info(f'Filtering to {self.end_date}')
 
+        # fix feed date types
         for feed in tqdm(self.schedule_manager.generate_providers()):
             new_start_date = None
             new_end_date = None
+            print(f'feed {feed.start_date().date()} sd {self.start_date}')
             if self.start_date is not None:
-                if feed.end_date() < self.start_date:
+                if feed.end_date().date() < self.start_date:
                     logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
                     continue
-                if self.start_date > feed.start_date():
+                if self.start_date > feed.start_date().date():
                     new_start_date = self.start_date
             if self.end_date is not None:
-                if feed.start_date() > self.end_date:
+                if feed.start_date().date() > self.end_date:
                     logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
                     continue
-                if self.end_date < feed.end_date():
+                if self.end_date < feed.end_date().date():
                     new_end_date = self.end_date
             if new_start_date:
                 print(f'Using alt start date {new_start_date}')
@@ -473,9 +482,9 @@ class Summarizer:
         return combined_long, self.build_summary(combined_grouped)
 
 
-def main(freq: str = 'D', save: bool = False, start_date = None, end_date = None):
+def main(freq: str = 'D', save: bool = False, start_date = None, end_date = None, existing=None):
     summarizer = Summarizer(freq, save, start_date, end_date)
-    return summarizer.main()
+    return summarizer.main(existing)
 
 """
 Pending bug to fix

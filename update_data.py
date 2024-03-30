@@ -348,10 +348,12 @@ def main() -> None:
         start_date = datetime.datetime.combine(args.start_date[0], datetime.time(), tzinfo=datetime.UTC)
     if args.end_date:
         end_date = datetime.datetime.combine(args.end_date[0], datetime.time(), tzinfo=datetime.UTC)
+    existing_df = None
     if args.update:
         u = Updater(args.update[0])
         start_date = u.latest()
-    combined_long_df, summary_df = csrt.main(freq="D", start_date=start_date, end_date=end_date)
+        existing_df = u.previous_df
+    combined_long_df, summary_df = csrt.main(freq="D", start_date=start_date, end_date=end_date, existing=existing_df)
 
     combined_long_df.loc[:, "ratio"] = (
         combined_long_df.loc[:, "trip_count_rt"]
