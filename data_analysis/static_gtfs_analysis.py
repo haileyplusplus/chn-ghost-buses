@@ -45,8 +45,8 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
-IGNORE = '20230211'
-#IGNORE = 's'
+#IGNORE = '20230211'
+IGNORE = 's'
 
 class FileManager:
     def __init__(self, subdir):
@@ -127,16 +127,16 @@ class GTFSFeed:
             GTFSFeed: A GTFSFeed object containing multiple DataFrames
                 accessible by name.
         """
-        if cta_download:
-            if version_id is not None:
-                raise ValueError("version_id is not used for downloads directly from CTA")
-            else:
-                logging.info(f"Extracting data from transitchicago.com zipfile")
-        
-        else:
-            if version_id is None:
-                version_id = VERSION_ID
-            logging.info(f"Extracting data from transitfeeds.com zipfile version {version_id}")
+        # if cta_download:
+        #     if version_id is not None:
+        #         raise ValueError("version_id is not used for downloads directly from CTA")
+        #     else:
+        #         logging.info(f"Extracting data from transitchicago.com zipfile")
+        #
+        # else:
+        #     if version_id is None:
+        #         version_id = VERSION_ID
+        #     logging.info(f"Extracting data from transitfeeds.com zipfile version {version_id}")
 
         data_dict = {}
         pbar = tqdm(cls.__annotations__.keys())
@@ -219,7 +219,7 @@ class ScheduleProvider:
     #     self.deferred = args
 
     def get_route_daily_summary(self):
-        cta_gtfs = self.download_zip()
+        #cta_gtfs = self.download_zip()
 
         logger.info("\nMaybe extracting data")
         # schedule.defer_schedule_extraction(
@@ -275,8 +275,12 @@ class ScheduleProvider:
         Returns:
             pd.DataFrame: A DataFrame with each trip that occurred per row.
         """
+
+        # def extract_data(cls, gtfs_zipfile: zipfile.ZipFile,
+        #                  version_id: str = None, cta_download: bool = True) -> GTFSFeed:
         if self.gtfs_feed is None:
-            self.gtfs_feed = GTFSFeed.extract_data(*self.deferred)
+            #self.gtfs_feed = GTFSFeed.extract_data(self.download_extract_format(), self.schedule_version(), False)
+            self.gtfs_feed = self.download_extract_format()
             self.gtfs_feed = format_dates_hours(self.gtfs_feed)
         assert self.gtfs_feed is not None
         data = self.gtfs_feed
@@ -438,6 +442,7 @@ class ScheduleProvider:
         else:
             cta_gtfs = self.download_zip()
             version_id = self.schedule_feed_info.schedule_version
+        print(f'download {self.schedule_feed_info} version {version_id}')
         data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
         data = format_dates_hours(data)
         return data
