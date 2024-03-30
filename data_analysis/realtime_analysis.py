@@ -8,7 +8,7 @@ import pendulum
 from tqdm import tqdm
 
 from utils import s3_csv_reader
-
+from data_analysis.common import sum_by_frequency
 
 BUCKET_PUBLIC = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
 BASE_PATH = S3Path(f"/{BUCKET_PUBLIC}")
@@ -24,7 +24,6 @@ class RealtimeProvider:
         self.agg_info = agg_info
 
     @staticmethod
-    # TODO: dedupe
     def make_daily_summary(df: pd.DataFrame) -> pd.DataFrame:
         """Make a summary of trips that actually happened. The result will be
             used as base data for further aggregations.
@@ -49,38 +48,10 @@ class RealtimeProvider:
         #print(f'>> make_daily_summary out {df}')
         return df
 
-    # TODO: dedupe
-    def sum_by_frequency(self,
-            df: pd.DataFrame,
-            ) -> pd.DataFrame:
-        """Calculate total trips per route per frequency
-
-        Args:
-            df (pd.DataFrame): A DataFrame of route or scheduled route data
-            agg_info (AggInfo): An AggInfo object describing how data
-                is to be aggregated.
-
-        Returns:
-            pd.DataFrame: A DataFrame with the total number of trips per route
-                by a specified frequency.
-        """
-        df = df.copy()
-        logging.info(df)
-        out = (
-            df.set_index(self.agg_info.byvars)
-            .groupby(
-                [pd.Grouper(level='date', freq=self.agg_info.freq),
-                 pd.Grouper(level='route_id')])[self.agg_info.aggvar]
-            .sum().reset_index()
-        )
-        #print(f'>> sum_by_frequency in {df} >> sum_by_frequency out {out}')
-        return out
-
-
     def rt_summarize(self, rt_df: pd.DataFrame) -> pd.DataFrame:
         rt_df = rt_df.copy()
         logging.info('rt df')
-        rt_freq_by_rte = self.sum_by_frequency(rt_df)
+        rt_freq_by_rte = sum_by_frequency(rt_df, self.agg_info)
         return rt_freq_by_rte
 
     def provide(self):

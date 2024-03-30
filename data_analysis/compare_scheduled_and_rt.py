@@ -1,6 +1,5 @@
 import os
 
-from dataclasses import dataclass, field
 from typing import List, Tuple
 import logging
 
@@ -14,6 +13,7 @@ import data_analysis.static_gtfs_analysis as static_gtfs_analysis
 from data_analysis.file_manager import FileManager
 from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo
 from data_analysis.realtime_analysis import RealtimeProvider
+from data_analysis.common import AggInfo, sum_by_frequency
 #from utils import s3_csv_reader
 
 load_dotenv()
@@ -31,76 +31,6 @@ BASE_PATH = S3Path(f"/{BUCKET_PUBLIC}")
 SCHEDULE_RT_PATH = BASE_PATH / "schedule_rt_comparisons" / "route_level"
 SCHEDULE_SUMMARY_PATH = BASE_PATH / "schedule_summaries" / "route_level"
 
-
-@dataclass
-class AggInfo:
-    """A class for storing information about
-        aggregation of route and schedule data
-
-    Args:
-        freq (str, optional): An offset alias described in the Pandas
-            time series docs. Defaults to None.
-            https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
-        aggvar (str, optional): variable to aggregate by.
-            Defaults to trip_count
-        byvars (List[str], optional): variables to passed to
-            pd.DataFrame.groupby. Defaults to ['date', 'route_id'].
-    """
-    freq: str = 'D'
-    aggvar: str = 'trip_count'
-    byvars: List[str] = field(default_factory=lambda: ['date', 'route_id'])
-
-
-def make_daily_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """Make a summary of trips that actually happened. The result will be
-        used as base data for further aggregations.
-
-    Args:
-        df (pd.DataFrame): A DataFrame read from bus_full_day_data_v2/{date}.
-
-    Returns:
-        pd.DataFrame: A summary of full day data by
-            date, route, and destination.
-    """
-    #print(f'>> make_daily_summary in {df}')
-    df = df.copy()
-    df = (
-        df.groupby(["data_date", "rt"])
-        .agg({"vid": set, "tatripid": set, "tablockid": set})
-        .reset_index()
-    )
-    df["vh_count"] = df["vid"].apply(len)
-    df["trip_count"] = df["tatripid"].apply(len)
-    df["block_count"] = df["tablockid"].apply(len)
-    #print(f'>> make_daily_summary out {df}')
-    return df
-
-
-def sum_by_frequency(
-    df: pd.DataFrame,
-        agg_info: AggInfo) -> pd.DataFrame:
-    """Calculate total trips per route per frequency
-
-    Args:
-        df (pd.DataFrame): A DataFrame of route or scheduled route data
-        agg_info (AggInfo): An AggInfo object describing how data
-            is to be aggregated.
-
-    Returns:
-        pd.DataFrame: A DataFrame with the total number of trips per route
-            by a specified frequency.
-    """
-    df = df.copy()
-    logging.info(df)
-    out = (
-        df.set_index(agg_info.byvars)
-        .groupby(
-            [pd.Grouper(level='date', freq=agg_info.freq),
-                pd.Grouper(level='route_id')])[agg_info.aggvar]
-        .sum().reset_index()
-    )
-    ##print(f'>> sum_by_frequency in {df} >> sum_by_frequency out {out}')
-    return out
 
 def sched_summarize(sched_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
     sched_df = sched_df.copy()
@@ -182,13 +112,6 @@ def freq_to_day(compare_freq_by_rte: pd.DataFrame) -> pd.DataFrame:
 
 class Combiner:
     # Read in pre-computed files of RT and scheduled data and compare!
-    # def __init__(
-    #     self,
-    #     schedule_feeds: List[ScheduleFeedInfo],
-    #     schedule_data_list: List[dict],
-    #     agg_info: AggInfo,
-    #
-    #         save: bool = True):
     """Class to generate a combined DataFrame with the realtime route comparisons
 
     Args:

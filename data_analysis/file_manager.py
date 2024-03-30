@@ -15,7 +15,8 @@ DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
 #IGNORE = '20230211'
 #IGNORE = '20221020'
-IGNORE = 's'
+IGNORE = '20231216'
+#IGNORE = 's'
 
 class FileManager:
     def __init__(self, subdir):

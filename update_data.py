@@ -341,6 +341,7 @@ def main() -> None:
     parser.add_argument('--start_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--end_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--update', nargs=1, required=False, help="Update all-day comparison file.")
+    parser.add_argument('--frequency', nargs=1, required=False, help="Frequency as decribed in pandas offset aliases.")
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
@@ -364,7 +365,10 @@ def main() -> None:
         u = Updater(args.update[0])
         start_date = u.latest()
         existing_df = u.previous_df
-    combined_long_df, summary_df = csrt.main(freq="D", start_date=start_date, end_date=end_date, existing=existing_df)
+    freq = 'D'
+    if args.frequency:
+        freq = args.frequency[0]
+    combined_long_df, summary_df = csrt.main(freq=freq, start_date=start_date, end_date=end_date, existing=existing_df)
 
     combined_long_df.loc[:, "ratio"] = (
         combined_long_df.loc[:, "trip_count_rt"]

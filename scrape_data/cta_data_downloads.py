@@ -7,6 +7,7 @@ import pandas as pd
 
 import data_analysis.static_gtfs_analysis as sga
 import data_analysis.compare_scheduled_and_rt as csrt
+import data_analysis.realtime_analysis as rta
 from utils import s3_csv_reader
 
 ACCESS_KEY = sys.argv[1]
@@ -94,7 +95,7 @@ def save_realtime_daily_summary() -> None:
 
     daily_data = s3_csv_reader.read_csv(csrt.BASE_PATH / f"bus_full_day_data_v2/{end_date}.csv")
     
-    daily_data = csrt.make_daily_summary(daily_data)
+    daily_data = rta.RealtimeProvider.make_daily_summary(daily_data)
     filename = f'realtime_summaries/daily_job/bus_full_day_data_v2/{end_date}.csv'
     save_csv_to_bucket(daily_data, filename=filename)
 
