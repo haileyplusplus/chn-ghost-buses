@@ -23,6 +23,7 @@ from statsmodels.tsa.stattools import adfuller, kpss
 
 import data_analysis.compare_scheduled_and_rt as compare_scheduled_and_rt
 import data_analysis.static_gtfs_analysis as static_gtfs_analysis
+from data_analysis.file_manager import FileManager
 
 CHICAGO_COORDINATES = (41.85, -87.68)
 
@@ -356,7 +357,7 @@ def fetch_ridership_data() -> pd.DataFrame:
             available date.
     """
     logger.info("Fetching ridership data")
-    fm = static_gtfs_analysis.FileManager('ridership')
+    fm = FileManager('ridership')
 
     # ridership_by_rte_date = pd.read_csv(
     #     "https://data.cityofchicago.org/api/views/"

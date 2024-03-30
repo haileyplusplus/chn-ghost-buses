@@ -15,6 +15,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 
 import data_analysis.static_gtfs_analysis as static_gtfs_analysis
+from data_analysis.file_manager import FileManager
 from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo
 from data_analysis.realtime_analysis import RealtimeProvider
 #from utils import s3_csv_reader
@@ -224,7 +225,7 @@ class Combiner:
         self.compare_freq_by_rte = None
         # need to decouple s3 save and local save
         self.save = False
-        self.fm = static_gtfs_analysis.FileManager('combined')
+        self.fm = FileManager('combined')
         #self.combine()
 
     def empty(self):
@@ -326,7 +327,7 @@ class Summarizer:
         self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=month, year=year)
         self.schedule_data_list = []
         #self.pbar = tqdm(self.schedule_feeds)
-        self.fm = static_gtfs_analysis.FileManager('schedule_daily_summary')
+        self.fm = FileManager('schedule_daily_summary')
         self.agg_info = AggInfo(freq=self.freq)
         self.holidays: List[str] = ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]
 
