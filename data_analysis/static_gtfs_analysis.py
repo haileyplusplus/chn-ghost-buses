@@ -33,11 +33,15 @@ from tqdm import tqdm
 
 #import scrape_data.scrape_schedule_versions
 from data_analysis.file_manager import FileManager
+# don't redo this
+from data_analysis.gtfs_fetcher import GTFSFetcher
 from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo, ScheduleIndexer
 
 VERSION_ID = "20220718"
 BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
 DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
+
+GTFS_FETCHER = GTFSFetcher()
 
 logger = logging.getLogger()
 logging.basicConfig(
@@ -391,12 +395,16 @@ class ScheduleProvider:
         Returns:
             GTFSFeed: A GTFSFeed object with formated dates
         """
-        if self.schedule_feed_info is None:
-            cta_gtfs, _ = self.download_cta_zip()
-            version_id = None
+        #if self.schedule_feed_info is None:
+        #    cta_gtfs, _ = self.download_cta_zip()
+        #    version_id = None
+        #else:
+        assert self.schedule_feed_info is not None
+        version_id = self.schedule_feed_info.schedule_version
+        if not self.schedule_feed_info.transitfeeds:
+            cta_gtfs = zipfile.ZipFile(GTFS_FETCHER.retrieve_file(version_id))
         else:
             cta_gtfs = self.download_zip()
-            version_id = self.schedule_feed_info.schedule_version
         print(f'download {self.schedule_feed_info} version {version_id}')
         data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
         data = format_dates_hours(data)
