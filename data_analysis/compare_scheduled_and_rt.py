@@ -419,12 +419,18 @@ class Summarizer:
                 if feed.end_date() < self.start_date:
                     logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
                     continue
-                new_start_date = max(feed.start_date(), self.start_date)
+                if self.start_date > feed.start_date():
+                    new_start_date = self.start_date
             if self.end_date is not None:
                 if feed.start_date() > self.end_date:
                     logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
                     continue
-                new_end_date = min(feed.end_date(), self.end_date)
+                if self.end_date < feed.end_date():
+                    new_end_date = self.end_date
+            if new_start_date:
+                print(f'Using alt start date {new_start_date}')
+            if new_end_date:
+                print(f'Using alt end date {new_end_date}')
             # if new_start_date:
             #     feed.schedule_feed_info.feed_start_date = new_start_date.strftime('%Y%m%d')
             # if new_end_date:
@@ -437,6 +443,8 @@ class Summarizer:
             # route_daily_summary = self.fm.retrieve_calculated_dataframe(filename, dailygetter, [])
             combiner = Combiner(feed, agg_info, self.holidays)
             this_iter = combiner.retrieve()
+            if this_iter.empty:
+                continue
             if new_start_date:
                 #this_iter = this_iter[datetime.datetime.fromtimestamp(this_iter.date.astype('int')) >= new_start_date]
                 this_iter = this_iter[this_iter.date >= new_start_date.strftime('%Y%m%d')]
