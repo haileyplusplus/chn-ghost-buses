@@ -211,6 +211,12 @@ class ScheduleProvider:
         self.file_manager = FileManager("schedules")
         self.schedule_feed_info = schedule_feed_info
 
+    def start_date(self):
+        return pendulum.parse(self.schedule_feed_info.feed_start_date)
+
+    def end_date(self):
+        return pendulum.parse(self.schedule_feed_info.feed_end_date)
+
     def schedule_version(self):
         return self.schedule_feed_info.schedule_version
 

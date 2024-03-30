@@ -1,5 +1,7 @@
 from collections import namedtuple
+from argparse import ArgumentParser
 import calendar
+import datetime
 
 import pandas as pd
 import numpy
@@ -323,7 +325,22 @@ def missing_days(datecol):
 
 def main() -> None:
     """Refresh data for interactive map, lineplots, and barcharts."""
-    combined_long_df, summary_df = csrt.main(freq="D")
+    parser = ArgumentParser(
+        prog='UpdateData',
+        description='Update Ghost Buses Data',
+    )
+    parser.add_argument('--start_date', nargs=1, required=False, type=datetime.date.fromisoformat)
+    parser.add_argument('--end_date', nargs=1, required=False, type=datetime.date.fromisoformat)
+    args = parser.parse_args()
+
+    start_date = None
+    end_date = None
+    if args.start_date:
+        start_date = datetime.datetime.combine(args.start_date[0], datetime.time(), tzinfo=datetime.UTC)
+    if args.end_date:
+        end_date = datetime.datetime.combine(args.end_date[0], datetime.time(), tzinfo=datetime.UTC)
+
+    combined_long_df, summary_df = csrt.main(freq="D", start_date=start_date, end_date=end_date)
 
     combined_long_df.loc[:, "ratio"] = (
         combined_long_df.loc[:, "trip_count_rt"]

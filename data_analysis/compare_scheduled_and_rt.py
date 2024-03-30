@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Tuple
 import logging
+import datetime
 from functools import partial
 
 # required for pandas to read csv from aws
@@ -302,7 +303,7 @@ class Combiner:
 
 
 class Summarizer:
-    def __init__(self, freq: str = 'D', save: bool = True):
+    def __init__(self, freq: str = 'D', save: bool = True, start_date = None, end_date = None):
         """Calculate the summary by route and day across multiple schedule versions
 
         Args:
@@ -314,7 +315,15 @@ class Summarizer:
         self.save = save
         #self.schedule_feeds = create_schedule_list(month=5, year=2022)
         self.schedule_feeds = []
-        self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
+        self.start_date = start_date
+        self.end_date = end_date
+        if self.start_date is not None:
+            month = self.start_date.month
+            year = self.start_date.year
+        else:
+            month = 5
+            year = 2022
+        self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=month, year=year)
         self.schedule_data_list = []
         #self.pbar = tqdm(self.schedule_feeds)
         self.fm = static_gtfs_analysis.FileManager('schedule_daily_summary')
@@ -400,19 +409,44 @@ class Summarizer:
         agg_info = AggInfo(freq=self.freq)
         combined_long = pd.DataFrame()
         #combined_grouped = pd.DataFrame()
+        if self.end_date is not None:
+            logger.info(f'Filtering to {self.end_date}')
 
         for feed in tqdm(self.schedule_manager.generate_providers()):
-            schedule_version = feed.schedule_version()
+            new_start_date = None
+            new_end_date = None
+            if self.start_date is not None:
+                if feed.end_date() < self.start_date:
+                    logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
+                    continue
+                new_start_date = max(feed.start_date(), self.start_date)
+            if self.end_date is not None:
+                if feed.start_date() > self.end_date:
+                    logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
+                    continue
+                new_end_date = min(feed.end_date(), self.end_date)
+            # if new_start_date:
+            #     feed.schedule_feed_info.feed_start_date = new_start_date.strftime('%Y%m%d')
+            # if new_end_date:
+            #     feed.schedule_feed_info.feed_end_date = new_end_date.strftime('%Y%m%d')
+            #schedule_version = feed.schedule_version()
             #dailygetter = partial(self.create_route_daily_summary, feed)
             # dailygetter = feed.get_route_daily_summary
             # filename = f'{schedule_version}.json'
             # logger.info(f'csrt main attempting to retrieve top-level {filename}')
             # route_daily_summary = self.fm.retrieve_calculated_dataframe(filename, dailygetter, [])
             combiner = Combiner(feed, agg_info, self.holidays)
+            this_iter = combiner.retrieve()
+            if new_start_date:
+                #this_iter = this_iter[datetime.datetime.fromtimestamp(this_iter.date.astype('int')) >= new_start_date]
+                this_iter = this_iter[this_iter.date >= new_start_date.strftime('%Y%m%d')]
+            if new_end_date:
+                this_iter = this_iter[this_iter.date <= new_end_date.strftime('%Y%m%d')]
+                #this_iter = this_iter[datetime.datetime.fromtimestamp(this_iter.date.astype('int')) <= new_end_date]
             #combined_grouped = pd.concat([combined_grouped, combiner.compare_by_day_type])
-            combined_long = pd.concat([combined_long, combiner.retrieve()])
+            combined_long = pd.concat([combined_long, this_iter])
             #print(f'>> this combiner day {combiner.compare_by_day_type}')
-            print(f'>> this combiner freq {combiner.compare_freq_by_rte}')
+            #print(f'>> this combiner freq {combiner.compare_freq_by_rte}')
             #route_daily_summary = self.create_route_daily_summary(feed)
             #self.schedule_feeds.append(feed.schedule_feed_info)
             #self.schedule_data_list.append(
@@ -430,8 +464,8 @@ class Summarizer:
         return combined_long, self.build_summary(combined_grouped)
 
 
-def main(freq: str = 'D', save: bool = False):
-    summarizer = Summarizer(freq, save)
+def main(freq: str = 'D', save: bool = False, start_date = None, end_date = None):
+    summarizer = Summarizer(freq, save, start_date, end_date)
     return summarizer.main()
 
 """
