@@ -322,6 +322,14 @@ def missing_days(datecol):
                 print(f' Missing day around {prev}, {x}')
         prev = x
 
+class Updater:
+    def __init__(self, previous_file):
+        self.previous_df = pd.read_json(previous_file)
+
+    # https://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
+    def latest(self):
+        return pd.Timestamp(max(self.previous_df['date'].unique())).to_pydatetime()
+
 
 def main() -> None:
     """Refresh data for interactive map, lineplots, and barcharts."""
@@ -331,6 +339,7 @@ def main() -> None:
     )
     parser.add_argument('--start_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--end_date', nargs=1, required=False, type=datetime.date.fromisoformat)
+    parser.add_argument('--update', nargs=1, required=False, help="Update all-day comparison file.")
     args = parser.parse_args()
 
     start_date = None
@@ -339,7 +348,9 @@ def main() -> None:
         start_date = datetime.datetime.combine(args.start_date[0], datetime.time(), tzinfo=datetime.UTC)
     if args.end_date:
         end_date = datetime.datetime.combine(args.end_date[0], datetime.time(), tzinfo=datetime.UTC)
-
+    if args.update:
+        u = Updater(args.update[0])
+        start_date = u.latest()
     combined_long_df, summary_df = csrt.main(freq="D", start_date=start_date, end_date=end_date)
 
     combined_long_df.loc[:, "ratio"] = (
