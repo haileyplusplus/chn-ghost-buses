@@ -13,8 +13,8 @@ BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
 DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
 
-#IGNORE = '20230211'
-IGNORE = 's'
+IGNORE = '20230211'
+#IGNORE = 's'
 
 class FileManager:
     def __init__(self, subdir):
@@ -44,12 +44,22 @@ class FileManager:
 
     def retrieve_calculated_dataframe(self, filename, func, dt_fields: list[str]) -> pd.DataFrame:
         filepath = self.cache_dir / filename
+        csv = filename.endswith('.csv')
         if filename.replace('-', '').startswith(IGNORE):
             print(f'Ignoring whether {filename} is in cache')
             return func()
+        if csv and not filepath.exists():
+            print(f'Using csv fallback for {filename}')
+            csv = False
+            filepath = self.cache_dir / filename.replace('.csv', '.json')
         if filepath.exists():
             logging.info(f'Retrieved {filename} from cache')
-            df = pandas.read_json(filepath)
+            if csv:
+                print(f'Reading csv from {filepath}')
+                df = pd.read_csv(filepath)
+                print(f'Done reading csv from {filepath}')
+            else:
+                df = pd.read_json(filepath)
             assert type(df) is pd.DataFrame
             if df.empty:
                 return pd.DataFrame()
@@ -60,7 +70,10 @@ class FileManager:
             return df
         logging.info(f'Writing {filename} to cache')
         df = func()
-        df.to_json(filepath)
+        if csv:
+            df.to_csv(filepath)
+        else:
+            df.to_json(filepath)
         #print(f'Storing df')
         #print(df)
         return df
