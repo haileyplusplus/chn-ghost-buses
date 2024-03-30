@@ -8,12 +8,17 @@ import logging
 import calendar
 import pandas as pd
 
+from data_analysis.gtfs_fetcher import GTFSFetcher
+
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 logger.setLevel(logging.INFO)
 
 BASE_URL = "https://transitfeeds.com"
 
+# Last historical schedule available on transitfeeds.com
+LAST_TRANSITFEEDS = pendulum.date(2023, 12, 7)
+FIRST_CTA = pendulum.date(2023, 12, 16)
 
 @dataclass
 class ScheduleFeedInfo:
@@ -22,9 +27,14 @@ class ScheduleFeedInfo:
     schedule_version: str
     feed_start_date: str
     feed_end_date: str
+    transitfeeds: bool = True
 
     def __str__(self):
-        return f'v_{self.schedule_version}_fs_{self.feed_start_date}_fe_{self.feed_end_date}'
+        if self.transitfeeds:
+            label = ''
+        else:
+            label = '_cta'
+        return f'v_{self.schedule_version}_fs_{self.feed_start_date}_fe_{self.feed_end_date}{label}'
 
     def __getitem__(self, item):
         if item not in frozenset(['schedule_version', 'feed_start_date', 'feed_end_date']):
@@ -52,6 +62,7 @@ class ScheduleIndexer:
         self.month = month
         self.year = year
         self.start2022 = start2022
+        self.gtfs_fetcher = GTFSFetcher()
         self.schedule_list: List[pendulum.date] = []
         self.start_end_list: List[Tuple[pendulum.date, pendulum.date]] = []
         self.schedule_feed_infos: List[ScheduleFeedInfo] = []
@@ -186,6 +197,7 @@ class ScheduleIndexer:
 
         start_end_list = []
         for i in range(len(schedule_list)):
+            #print(f'sched {i} {schedule_list[i]}')
             try:
                 date_tuple = (
                     schedule_list[i].add(days=1),
@@ -194,12 +206,16 @@ class ScheduleIndexer:
                 start_end_list.append(date_tuple)
             except IndexError:
                 pass
+            #print(f'  Date tuple: {date_tuple}')
 
-        # Handle the current schedule version by setting the end date as the latest
-        # available date for data.
-        start_end_list.append(
-            (schedule_list[-1].add(days=1), self.check_latest_rt_data_date())
-        )
+        #gtfs_version_dates = [pendulum.parse(version).date() for version in self.gtfs_fetcher.get_versions() if pendulum.parse(version).date() >= FIRST_CTA]
+        #gtfs_version_dates.append(self.check_latest_rt_data_date())
+
+        # # Handle the current schedule version by setting the end date as the latest
+        # # available date for data.
+        # start_end_list.append(
+        #     (schedule_list[-1].add(days=1), self.check_latest_rt_data_date())
+        # )
         self.schedule_list = schedule_list
         self.start_end_list = start_end_list
 
@@ -224,9 +240,22 @@ class ScheduleIndexer:
             if version == pendulum.date(2022, 5, 19):
                 version = pendulum.date(2022, 5, 7)
             schedule_dict = ScheduleFeedInfo.from_pendulum(version, start_date, end_date)
-            print(f'sd: {schedule_dict}')
+            #print(f'sd: {schedule_dict}')
             schedule_list_dict.append(schedule_dict)
+        pd = lambda version: pendulum.parse(version).date()
+        gtfs_versions = [version for version in self.gtfs_fetcher.get_versions() if pd(version) >= FIRST_CTA]
+        print(gtfs_versions)
+        gtfs_versions.append(self.check_latest_rt_data_date())
+        current = gtfs_versions.pop(0)
+        while gtfs_versions:
+            next = gtfs_versions[0]
+            sfi = ScheduleFeedInfo.from_pendulum(current, pd(current), pd(next).subtract(days=1))
+            sfi.transitfeeds = False
+            schedule_list_dict.append(sfi)
+            current = gtfs_versions.pop(0)
         self.schedule_feed_infos = schedule_list_dict
+        for sfi in self.schedule_feed_infos:
+            print(f'sfi: {sfi}')
 
     def get_schedule_list_dict(self):
         return self.schedule_feed_infos
