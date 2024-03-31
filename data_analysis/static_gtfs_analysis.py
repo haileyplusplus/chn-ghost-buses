@@ -33,9 +33,11 @@ from tqdm import tqdm
 
 #import scrape_data.scrape_schedule_versions
 from data_analysis.file_manager import FileManager
+from data_analysis.schedule_manager import GTFSFeed
 # don't redo this
 from data_analysis.gtfs_fetcher import GTFSFetcher
-from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo, ScheduleIndexer
+#from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo, ScheduleIndexer
+from data_analysis.schedule_manager import ScheduleIndexer, ScheduleFeedInfo
 
 VERSION_ID = "20220718"
 BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
@@ -50,51 +52,6 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
-
-@dataclass
-class GTFSFeed:
-    """Class for storing GTFSFeed data.
-    """
-    stops: pd.DataFrame
-    stop_times: pd.DataFrame
-    routes: pd.DataFrame
-    trips: pd.DataFrame
-    calendar: pd.DataFrame
-    calendar_dates: pd.DataFrame
-    shapes: pd.DataFrame
-
-    @classmethod
-    def extract_data(cls, gtfs_zipfile: zipfile.ZipFile,
-                     version_id: str = None, cta_download: bool = True) -> GTFSFeed:
-        """Load each text file in zipfile into a DataFrame
-
-        Args:
-            gtfs_zipfile (zipfile.ZipFile): Zipfile downloaded from
-                transitfeeds.com or transitchicago.com e.g.
-                https://transitfeeds.com/p/chicago-transit-authority/
-                165/20220718/download or https://www.transitchicago.com/downloads/sch_data/
-            version_id (str, optional): The schedule version in use.
-                Defaults to None.
-
-        Returns:
-            GTFSFeed: A GTFSFeed object containing multiple DataFrames
-                accessible by name.
-        """
-        data_dict = {}
-        pbar = tqdm(cls.__annotations__.keys())
-        for txt_file in pbar:
-            pbar.set_description(f'Loading {txt_file}.txt')
-            try:
-                with gtfs_zipfile.open(f'{txt_file}.txt') as file:
-                    df = pd.read_csv(file, dtype="object")
-                    logger.info(f'{txt_file}.txt loaded')
-
-            except KeyError as ke:
-                logger.info(f"{gtfs_zipfile} is missing required file")
-                logger.info(ke)
-                df = None
-            data_dict[txt_file] = df
-        return cls(**data_dict)
 
 
 # Basic data transformations
@@ -401,6 +358,7 @@ class ScheduleProvider:
         return route_daily_summary
 
 
+# still need to untangle this
 class ScheduleManager:
     def __init__(self, month: int, year: int):
         self.indexer = ScheduleIndexer(
@@ -411,7 +369,7 @@ class ScheduleManager:
         #return indexer.get_schedule_list_dict()
 
     def generate_providers(self):
-        for item in self.indexer.schedule_feed_infos:
+        for item in self.indexer.get_schedules():
             yield ScheduleProvider(item)
 
 

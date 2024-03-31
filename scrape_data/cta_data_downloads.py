@@ -6,6 +6,7 @@ from io import StringIO
 import pandas as pd
 
 import data_analysis.static_gtfs_analysis as sga
+import data_analysis.schedule_manager as sm
 import data_analysis.compare_scheduled_and_rt as csrt
 import data_analysis.realtime_analysis as rta
 from utils import s3_csv_reader
@@ -64,7 +65,7 @@ def save_csv_to_bucket(df: pd.DataFrame, filename: str) -> None:
 
 
 def save_sched_daily_summary() -> None:
-    data = sga.GTFSFeed.extract_data(CTA_GTFS)
+    data = sm.GTFSFeed.extract_data(CTA_GTFS, version_id=today)
     data = sga.format_dates_hours(data)
     schedule = sga.Schedule(data)
     trip_summary = schedule.make_trip_summary()

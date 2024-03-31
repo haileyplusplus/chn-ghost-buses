@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 
 import data_analysis.static_gtfs_analysis as static_gtfs_analysis
 from data_analysis.file_manager import FileManager
-from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo
 from data_analysis.realtime_analysis import RealtimeProvider
 from data_analysis.common import AggInfo, sum_by_frequency
 #from utils import s3_csv_reader
@@ -203,7 +202,6 @@ class Summarizer:
         """
         self.freq = freq
         self.save = save
-        #self.schedule_feeds = create_schedule_list(month=5, year=2022)
         self.schedule_feeds = []
         self.start_date = None
         self.end_date = None
