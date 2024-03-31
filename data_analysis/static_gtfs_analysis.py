@@ -123,37 +123,15 @@ class ScheduleSummarizer:
         logger.info("\nSummarizing trip data")
 
         feed = self.schedule_feed_info
-        trip_summary = self.make_trip_summary(
-            pendulum.from_format(feed['feed_start_date'], 'YYYY-MM-DD'),
-            pendulum.from_format(feed['feed_end_date'], 'YYYY-MM-DD'))
-
-        route_daily_summary = (
-            self
-            .summarize_date_rt(trip_summary)
-        )
+        filename = f'trip_summary_{self.schedule_feed_info.feed_start_date}_to_{self.schedule_feed_info.feed_end_date}.json'
+        trip_summary = self.file_manager.retrieve_calculated_dataframe(
+            filename, self.make_trip_summary, ['raw_date', 'start_date_dt', 'end_date_dt'])
+        route_daily_summary = self.summarize_date_rt(trip_summary)
         route_daily_summary['version'] = self.schedule_feed_info.schedule_version
         print(f'RDS: {feed} -> {route_daily_summary}')
         return route_daily_summary
 
-    def make_trip_summary(self,
-                          feed_start_date: pendulum.datetime = None,
-                          feed_end_date: pendulum.datetime = None) -> pd.DataFrame:
-        logging.info(f'Callling make_trip_summary with {feed_start_date}, {feed_end_date}')
-        start_str = 'none'
-        if feed_start_date:
-            start_str = feed_start_date.format('YYYYMMDD')
-        end_str = 'none'
-        if feed_end_date:
-            end_str = feed_end_date.format('YYYYMMDD')
-        filename = f'trip_summary_{start_str}_to_{end_str}.json'
-        func = partial(self.make_trip_summary_inner, feed_start_date, feed_end_date)
-        return self.file_manager.retrieve_calculated_dataframe(
-            filename, func, ['raw_date', 'start_date_dt', 'end_date_dt'])
-
-    def make_trip_summary_inner(
-        self,
-        feed_start_date: pendulum.datetime = None,
-        feed_end_date: pendulum.datetime = None) -> pd.DataFrame:
+    def make_trip_summary(self) -> pd.DataFrame:
         """Create a summary of trips with one row per date
 
         Args:
@@ -171,7 +149,6 @@ class ScheduleSummarizer:
             self.gtfs_feed = format_dates_hours(self.gtfs_feed)
         assert self.gtfs_feed is not None
         data = self.gtfs_feed
-        logging.info(f'Callling make_trip_summary_inner with {feed_start_date}, {feed_end_date}')
         # construct a datetime index that has every day between calendar start and
         # end
         calendar_date_range = pd.DataFrame(
@@ -264,10 +241,9 @@ class ScheduleSummarizer:
             trip_stop_hours, how="left", on="trip_id")
 
         # filter to only the rows for the period where this specific feed version was in effect
-        if feed_start_date is not None and feed_end_date is not None:
-            trip_summary = trip_summary.loc[
-                (trip_summary['raw_date'] >= feed_start_date)
-                & (trip_summary['raw_date'] <= feed_end_date), :]
+        trip_summary = trip_summary.loc[
+            (trip_summary['raw_date'] >= self.start_date())
+            & (trip_summary['raw_date'] <= self.end_date()), :]
 
         return trip_summary
 
@@ -357,21 +333,6 @@ class ScheduleSummarizer:
 
         return route_daily_summary
 
-
-# # still need to untangle this
-# class ScheduleManager:
-#     def __init__(self, month: int, year: int):
-#         self.indexer = ScheduleIndexer(
-#             month=month,
-#             year=year,
-#             start2022=True
-#         )
-#         #return indexer.get_schedule_list_dict()
-#
-#     def generate_providers(self):
-#         for item in self.indexer.get_schedules():
-#             yield ScheduleSummarizer(item)
-#
 
 def make_linestring_of_points(
         sub_df: pd.DataFrame) -> shapely.geometry.LineString:
