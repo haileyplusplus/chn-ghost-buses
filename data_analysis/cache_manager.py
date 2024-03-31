@@ -19,7 +19,7 @@ DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 #IGNORE = 's'
 
 class CacheManager:
-    def __init__(self, ignore_cached_calculation=False):
+    def __init__(self, ignore_cached_calculation=False, verbose=False):
         self.data_dir: Path = DATA_DIR
         self.objects = {}
         self.ignore_cached_calculation = ignore_cached_calculation
@@ -64,15 +64,15 @@ class CacheManager:
         if self.ignore_cached_calculation:
             print(f'Ignoring whether {subdir}/{filename} is in cache')
             return func()
-        if csv and not filepath.exists():
-            print(f'Using csv fallback for {filename}')
-            csv = False
-            filepath = self.cache_dir / filename.replace('.csv', '.json')
+        #if csv and not filepath.exists():
+        #    print(f'Using csv fallback for {filename}')
+        #    csv = False
+        #    filepath = self.cache_dir / filename.replace('.csv', '.json')
         if filepath.exists():
             logging.info(f'Retrieved {subdir}/{filename} from cache')
             if csv:
                 logging.debug(f'Reading csv from {filepath}')
-                df = pd.read_csv(filepath)
+                df = pd.read_csv(filepath, low_memory=False)
             else:
                 df = pd.read_json(filepath)
             assert type(df) is pd.DataFrame
