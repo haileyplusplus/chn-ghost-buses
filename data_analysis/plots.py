@@ -357,10 +357,11 @@ def fetch_ridership_data() -> pd.DataFrame:
             available date.
     """
     logger.info("Fetching ridership data")
-    fm = CacheManager("ridership")
+    fm = CacheManager()
 
     ridership_by_rte_date = pd.read_csv(
         fm.retrieve(
+            "ridership",
             "ridership.csv",
             "https://data.cityofchicago.org/api/views/jyb9-n7fm/rows.csv?accessType=DOWNLOAD"
         )

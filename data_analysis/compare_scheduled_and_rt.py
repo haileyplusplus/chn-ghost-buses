@@ -131,14 +131,14 @@ class Combiner:
         self.agg_info = agg_info
         self.compare_freq_by_rte = None
         self.save_to_s3 = save_to_s3
-        self.fm = CacheManager('combined')
+        self.fm = CacheManager()
 
     def empty(self):
         return self.compare_freq_by_rte is None
 
     def retrieve(self):
         filename = f'{self.schedule_provider.schedule_feed_info.schedule_version}_combined.json'
-        df = self.fm.retrieve_calculated_dataframe(filename, self.combine, [])
+        df = self.fm.retrieve_calculated_dataframe('combined', filename, self.combine, [])
         #df = self.combine()
         self.compare_freq_by_rte = df
         return df
@@ -206,7 +206,8 @@ class Summarizer:
             self.end_date = end_date.date()
         #self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
         self.schedules = ScheduleIndexer(5, 2022).get_schedules()
-        self.fm = CacheManager('schedule_daily_summary')
+        # 'schedule_daily_summary'
+        self.fm = CacheManager()
         self.agg_info = AggInfo(freq=self.freq)
         self.holidays: List[str] = ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]
 

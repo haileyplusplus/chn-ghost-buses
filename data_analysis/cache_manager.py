@@ -19,13 +19,14 @@ IGNORE = '20231216'
 #IGNORE = 's'
 
 class CacheManager:
-    def __init__(self, subdir):
-        self.cache_dir = DATA_DIR / subdir
-        if not self.cache_dir.exists():
-            self.cache_dir.mkdir()
+    def __init__(self):
+        self.data_dir: Path = DATA_DIR
 
-    def retrieve(self, filename: str, url: str) -> BytesIO:
-        filepath = self.cache_dir / filename
+    def retrieve(self, subdir, filename: str, url: str) -> BytesIO:
+        cache_dir = self.data_dir / subdir
+        if not cache_dir.exists():
+            cache_dir.mkdir()
+        filepath = cache_dir / filename
         if filepath.exists():
             logging.info(f'Retrieved cached {url} from {filename}')
             return BytesIO(filepath.open('rb').read())
@@ -44,8 +45,11 @@ class CacheManager:
         df[c] = df[c].apply(fixer)
         return df
 
-    def retrieve_calculated_dataframe(self, filename, func, dt_fields: list[str]) -> pd.DataFrame:
-        filepath = self.cache_dir / filename
+    def retrieve_calculated_dataframe(self, subdir, filename, func, dt_fields: list[str]) -> pd.DataFrame:
+        cache_dir = self.data_dir / subdir
+        if not cache_dir.exists():
+            cache_dir.mkdir()
+        filepath = cache_dir / filename
         csv = filename.endswith('.csv')
         if filename.replace('-', '').startswith(IGNORE):
             print(f'Ignoring whether {filename} is in cache')
