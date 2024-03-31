@@ -3,13 +3,13 @@ import logging
 import os
 from pathlib import Path
 #import data_analysis.compare_scheduled_and_rt as csrt
-from data_analysis.cache_manager import FileManager
+from data_analysis.cache_manager import CacheManager
 from functools import partial
 
 BUCKET_PUBLIC = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
 
 
-csvfm = FileManager('s3csv')
+csvfm = CacheManager('s3csv')
 
 def read_csv(filename: str | Path) -> pd.DataFrame:    
     """Read pandas csv from S3
