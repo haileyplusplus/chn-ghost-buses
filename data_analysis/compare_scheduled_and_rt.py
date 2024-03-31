@@ -9,13 +9,11 @@ import pendulum
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-import data_analysis.static_gtfs_analysis as static_gtfs_analysis
-from data_analysis.static_gtfs_analysis import ScheduleSummarizer
-from data_analysis.schedule_manager import ScheduleIndexer
+from data_analysis.common import AggInfo, sum_by_frequency
 from data_analysis.file_manager import FileManager
 from data_analysis.realtime_analysis import RealtimeProvider
-from data_analysis.common import AggInfo, sum_by_frequency
-#from utils import s3_csv_reader
+from data_analysis.schedule_manager import ScheduleIndexer
+from data_analysis.static_gtfs_analysis import ScheduleSummarizer
 
 load_dotenv()
 
@@ -27,31 +25,26 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
-BASE_PATH = S3Path(f"/{BUCKET_PUBLIC}")
+S3_BASE_PATH = S3Path(f"/{BUCKET_PUBLIC}")
 
-SCHEDULE_RT_PATH = BASE_PATH / "schedule_rt_comparisons" / "route_level"
-SCHEDULE_SUMMARY_PATH = BASE_PATH / "schedule_summaries" / "route_level"
+SCHEDULE_RT_PATH = S3_BASE_PATH / "schedule_rt_comparisons" / "route_level"
+SCHEDULE_SUMMARY_PATH = S3_BASE_PATH / "schedule_summaries" / "route_level"
 
 
-def sched_summarize(sched_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
+def summarize_schedule(sched_df: pd.DataFrame, agg_info: AggInfo) -> pd.DataFrame:
     sched_df = sched_df.copy()
-    # maybe this doesn't do anything
-
-    logging.info('sched df')
     sched_freq_by_rte = sum_by_frequency(
         sched_df,
         agg_info=agg_info
     )
     return sched_freq_by_rte
 
-
-# now the main combiner of parallel dfs of summarized rt and summarized schedule data
 def sum_trips_by_rt_by_freq(
     rt_freq_by_rte: pd.DataFrame,
     sched_freq_by_rte: pd.DataFrame,
     holidays: List[str]) -> pd.DataFrame:
-    """Calculate ratio of trips to scheduled trips per route
-       per specified frequency.
+    """Combine and aggregate realtime and schedule data to allow comparison of
+       scheduled and actual trips.
 
     Args:
         rt_df (pd.DataFrame): A DataFrame of daily route data
@@ -63,9 +56,6 @@ def sum_trips_by_rt_by_freq(
 
     Returns:
         pd.DataFrame: DataFrame a row per day per route with the number of scheduled and observed trips. 
-        pd.DataFrame: DataFrame with the total number of trips per route
-            by specified frequency and the ratio of actual trips to
-            scheduled trips.
     """
 
     compare_freq_by_rte = rt_freq_by_rte.merge(
@@ -90,14 +80,22 @@ def sum_trips_by_rt_by_freq(
             holidays), "day_type"
     ] = "hol"
 
-
-    # compare_freq_by_rte is important, day can be derived
     return compare_freq_by_rte
 
+def calculate_trip_ratio(freq_by_rte: pd.DataFrame) -> pd.DataFrame:
+    """Calculate ratio of trips to scheduled trips per route
+       per specified frequency.
 
-def freq_to_day(compare_freq_by_rte: pd.DataFrame) -> pd.DataFrame:
+    Args:
+        freq_by_rte (pd.DataFrame): a row per day per route with the number of scheduled and observed trips.
+
+    Returns:
+        pd.DataFrame: DataFrame with the total number of trips per route
+            by specified frequency and the ratio of actual trips to
+            scheduled trips.
+    """
     compare_by_day_type = (
-        compare_freq_by_rte.groupby(["route_id", "day_type"])[
+        freq_by_rte.groupby(["route_id", "day_type"])[
             ["trip_count_rt", "trip_count_sched"]
         ]
         .sum()
@@ -110,9 +108,8 @@ def freq_to_day(compare_freq_by_rte: pd.DataFrame) -> pd.DataFrame:
     )
     return compare_by_day_type
 
-
+# Read in pre-computed files of RT and scheduled data and compare!
 class Combiner:
-    # Read in pre-computed files of RT and scheduled data and compare!
     """Class to generate a combined DataFrame with the realtime route comparisons
 
     Args:
@@ -125,19 +122,16 @@ class Combiner:
             is to be aggregated.
         holidays (List[str], optional): List of holidays in analyzed period in YYYY-MM-DD format.
             Defaults to ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"].
-        save (bool, optional): whether to save the csv file to s3 bucket.
+        save_to_s3 (bool, optional): whether to save the csv file to s3 bucket.
     """
-    def __init__(self, provider, agg_info, holidays):
+    def __init__(self, provider, agg_info, holidays, save_to_s3=False):
         self.schedule_provider = provider
         self.rt_provider = RealtimeProvider(provider, agg_info)
         self.holidays = holidays
         self.agg_info = agg_info
-        #self.compare_by_day_type = None
         self.compare_freq_by_rte = None
-        # need to decouple s3 save and local save
-        self.save = False
+        self.save_to_s3 = save_to_s3
         self.fm = FileManager('combined')
-        #self.combine()
 
     def empty(self):
         return self.compare_freq_by_rte is None
@@ -163,7 +157,7 @@ class Combiner:
             return pd.DataFrame()
         schedule["date"] = pd.to_datetime(schedule.date, format="%Y-%m-%d")
 
-        sched_freq_by_rte = sched_summarize(schedule, agg_info=self.agg_info)
+        sched_freq_by_rte = summarize_schedule(schedule, agg_info=self.agg_info)
         rt_freq_by_rte = self.rt_provider.provide()
 
         compare_freq_by_rte = sum_trips_by_rt_by_freq(
@@ -174,8 +168,8 @@ class Combiner:
 
         compare_freq_by_rte['feed_version'] = feed['schedule_version']
 
-        if self.save:
-            compare_by_day_type = freq_to_day(compare_freq_by_rte)
+        if self.save_to_s3:
+            compare_by_day_type = calculate_trip_ratio(compare_freq_by_rte)
             outpath = (
                 (SCHEDULE_RT_PATH /
                  f'schedule_v{feed["schedule_version"]}_'
@@ -194,16 +188,16 @@ class Combiner:
 
 
 class Summarizer:
-    def __init__(self, freq: str = 'D', save: bool = True, start_date = None, end_date = None):
+    def __init__(self, freq: str = 'D', save_to_s3: bool = False, start_date = None, end_date = None):
         """Calculate the summary by route and day across multiple schedule versions
 
         Args:
             freq (str): Frequency of aggregation. Defaults to Daily.
-            save (bool, optional): whether to save DataFrame to s3.
+            save_to_s3 (bool, optional): whether to save DataFrame to s3.
                 Defaults to True.
         """
         self.freq = freq
-        self.save = save
+        self.save_to_s3 = save_to_s3
         self.start_date = None
         self.end_date = None
         if start_date:
@@ -238,7 +232,7 @@ class Summarizer:
 
         summary["ratio"] = summary["trip_count_rt"] / summary["trip_count_sched"]
 
-        if self.save:
+        if self.save_to_s3:
             outpath = (
                 (SCHEDULE_RT_PATH /
                  f"combined_schedule_realtime_rt_level_comparison_"
@@ -292,7 +286,7 @@ class Summarizer:
                 print(f'Using alt start date {new_start_date}')
             if new_end_date:
                 print(f'Using alt end date {new_end_date}')
-            combiner = Combiner(feed, agg_info, self.holidays)
+            combiner = Combiner(feed, agg_info, self.holidays, self.save_to_s3)
             this_iter = combiner.retrieve()
             if this_iter.empty:
                 continue
@@ -301,12 +295,12 @@ class Summarizer:
             if new_end_date:
                 this_iter = this_iter[this_iter.date <= new_end_date.strftime('%Y%m%d')]
             combined_long = pd.concat([combined_long, this_iter])
-        combined_grouped = freq_to_day(combined_long)
+        combined_grouped = calculate_trip_ratio(combined_long)
         return combined_long, self.build_summary(combined_grouped)
 
 
-def main(freq: str = 'D', save: bool = False, start_date = None, end_date = None, existing=None):
-    summarizer = Summarizer(freq, save, start_date, end_date)
+def main(freq: str = 'D', save_to_s3: bool = False, start_date = None, end_date = None, existing=None):
+    summarizer = Summarizer(freq, save_to_s3, start_date, end_date)
     return summarizer.main(existing)
 
 if __name__ == "__main__":
