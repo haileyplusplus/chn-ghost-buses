@@ -15,13 +15,14 @@ DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
 #IGNORE = '20230211'
 #IGNORE = '20221020'
-IGNORE = '20231216'
+#IGNORE = '20231216'
 #IGNORE = 's'
 
 class CacheManager:
-    def __init__(self):
+    def __init__(self, ignore_cached_calculation=False):
         self.data_dir: Path = DATA_DIR
         self.objects = {}
+        self.ignore_cached_calculation = ignore_cached_calculation
 
     def retrieve_object(self, name, func):
         obj = self.objects.get(name)
@@ -59,15 +60,16 @@ class CacheManager:
             cache_dir.mkdir()
         filepath = cache_dir / filename
         csv = filename.endswith('.csv')
-        if filename.replace('-', '').startswith(IGNORE):
-            print(f'Ignoring whether {filename} is in cache')
+        #if filename.replace('-', '').startswith(IGNORE):
+        if self.ignore_cached_calculation:
+            print(f'Ignoring whether {subdir}/{filename} is in cache')
             return func()
         if csv and not filepath.exists():
             print(f'Using csv fallback for {filename}')
             csv = False
             filepath = self.cache_dir / filename.replace('.csv', '.json')
         if filepath.exists():
-            logging.info(f'Retrieved {filename} from cache')
+            logging.info(f'Retrieved {subdir}/{filename} from cache')
             if csv:
                 logging.debug(f'Reading csv from {filepath}')
                 df = pd.read_csv(filepath)
@@ -81,7 +83,7 @@ class CacheManager:
             #print('Retrieved df')
             #print(df)
             return df
-        logging.info(f'Writing {filename} to cache')
+        logging.info(f'Writing {subdir}/{filename} to cache')
         df = func()
         if csv:
             df.to_csv(filepath)

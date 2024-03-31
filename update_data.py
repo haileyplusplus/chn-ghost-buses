@@ -330,7 +330,10 @@ def main() -> None:
     parser.add_argument('--start_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--end_date', nargs=1, required=False, type=datetime.date.fromisoformat)
     parser.add_argument('--update', nargs=1, required=False, help="Update all-day comparison file.")
-    parser.add_argument('--frequency', nargs=1, required=False, help="Frequency as decribed in pandas offset aliases.")
+    parser.add_argument('--frequency', nargs=1, required=False,
+                        help="Frequency as decribed in pandas offset aliases.")
+    parser.add_argument('--recalculate', action='store_true',
+                        help="Don't use the cache when calculating results.")
     args = parser.parse_args()
 
     start_date = None
@@ -348,7 +351,10 @@ def main() -> None:
     freq = 'D'
     if args.frequency:
         freq = args.frequency[0]
-    cache_manager = CacheManager()
+    if args.recalculate:
+        cache_manager = CacheManager(ignore_cached_calculation=True)
+    else:
+        cache_manager = CacheManager()
     combined_long_df, summary_df = csrt.main(cache_manager, freq=freq, start_date=start_date, end_date=end_date, existing=existing_df)
 
     combined_long_df.loc[:, "ratio"] = (
