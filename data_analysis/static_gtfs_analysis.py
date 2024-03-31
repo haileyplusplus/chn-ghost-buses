@@ -104,7 +104,7 @@ def format_dates_hours(data: GTFSFeed) -> GTFSFeed:
     return data
 
 
-class ScheduleProvider:
+class ScheduleSummarizer:
     def __init__(self, schedule_feed_info : ScheduleFeedInfo):
         self.gtfs_feed = None
         self.file_manager = FileManager("schedules")
@@ -350,7 +350,7 @@ class ScheduleProvider:
         groupby_vars = ["raw_date", "route_id"]
 
         # group to get trips by date by route
-        route_daily_summary = ScheduleProvider.group_trips(
+        route_daily_summary = ScheduleSummarizer.group_trips(
             trip_summary,
             groupby_vars=groupby_vars,
         )
@@ -358,20 +358,20 @@ class ScheduleProvider:
         return route_daily_summary
 
 
-# still need to untangle this
-class ScheduleManager:
-    def __init__(self, month: int, year: int):
-        self.indexer = ScheduleIndexer(
-            month=month,
-            year=year,
-            start2022=True
-        )
-        #return indexer.get_schedule_list_dict()
-
-    def generate_providers(self):
-        for item in self.indexer.get_schedules():
-            yield ScheduleProvider(item)
-
+# # still need to untangle this
+# class ScheduleManager:
+#     def __init__(self, month: int, year: int):
+#         self.indexer = ScheduleIndexer(
+#             month=month,
+#             year=year,
+#             start2022=True
+#         )
+#         #return indexer.get_schedule_list_dict()
+#
+#     def generate_providers(self):
+#         for item in self.indexer.get_schedules():
+#             yield ScheduleSummarizer(item)
+#
 
 def make_linestring_of_points(
         sub_df: pd.DataFrame) -> shapely.geometry.LineString:
@@ -401,7 +401,7 @@ def main() -> geopandas.GeoDataFrame:
 
     # Get the latest version
     latest = schedule_list[-1]
-    provider = ScheduleProvider(latest)
+    provider = ScheduleSummarizer(latest)
 
     data = provider.download_extract_format()
 

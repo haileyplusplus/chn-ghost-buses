@@ -10,6 +10,8 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 
 import data_analysis.static_gtfs_analysis as static_gtfs_analysis
+from data_analysis.static_gtfs_analysis import ScheduleSummarizer
+from data_analysis.schedule_manager import ScheduleIndexer
 from data_analysis.file_manager import FileManager
 from data_analysis.realtime_analysis import RealtimeProvider
 from data_analysis.common import AggInfo, sum_by_frequency
@@ -202,15 +204,14 @@ class Summarizer:
         """
         self.freq = freq
         self.save = save
-        self.schedule_feeds = []
         self.start_date = None
         self.end_date = None
         if start_date:
             self.start_date = start_date.date()
         if end_date:
             self.end_date = end_date.date()
-        self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
-        self.schedule_data_list = []
+        #self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
+        self.schedules = ScheduleIndexer(5, 2022).get_schedules()
         self.fm = FileManager('schedule_daily_summary')
         self.agg_info = AggInfo(freq=self.freq)
         self.holidays: List[str] = ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]
@@ -269,7 +270,9 @@ class Summarizer:
             logger.info(f'Filtering to {self.end_date}')
 
         # fix feed date types
-        for feed in tqdm(self.schedule_manager.generate_providers()):
+        for schedule in tqdm(self.schedules):
+            # rename this
+            feed = ScheduleSummarizer(schedule)
             new_start_date = None
             new_end_date = None
             print(f'feed {feed.start_date().date()} sd {self.start_date}')
