@@ -313,16 +313,6 @@ def update_barchart_data(
     )
 
 
-def missing_days(datecol):
-    print(f'Range: {datecol.iloc[0]} to {datecol.iloc[-1]}')
-    prev = None
-    for x in datecol.unique():
-        if prev:
-            dt = x - prev
-            if dt != numpy.timedelta64(1, 'D'):
-                print(f' Missing day around {prev}, {x}')
-        prev = x
-
 class Updater:
     def __init__(self, previous_file):
         self.previous_df = pd.read_json(previous_file)
@@ -391,8 +381,6 @@ def main() -> None:
     print(f'summary: {summary_df}')
     print(f'start date: {start_date}')
     print(f'end date: {end_date}')
-
-    missing_days(combined_long_df['date'])
 
     update_interactive_map_data(data_update)
     update_lineplot_data(data_update)
