@@ -396,11 +396,12 @@ def main() -> geopandas.GeoDataFrame:
     Returns:
         geopandas.GeoDataFrame: DataFrame with route shapes
     """
+    indexer = ScheduleIndexer(5, 2022)
+    schedule_list = indexer.get_schedules()
 
-    schedule_list = create_schedule_list(5, 2022)
     # Get the latest version
     latest = schedule_list[-1]
-    provider = ScheduleProvider(None)
+    provider = ScheduleProvider(latest)
 
     data = provider.download_extract_format()
 
