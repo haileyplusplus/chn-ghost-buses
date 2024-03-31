@@ -12,36 +12,21 @@
 from __future__ import annotations
 import os
 from pathlib import Path
-from dataclasses import dataclass
-from typing import Tuple
-from functools import partial
 
 import logging
 import calendar
 import datetime
 
-import pandas
 import pandas as pd
 import zipfile
-import requests
 import pendulum
-from io import BytesIO
 import shapely
 import geopandas
 
-from tqdm import tqdm
-
-#import scrape_data.scrape_schedule_versions
 from data_analysis.file_manager import FileManager
-from data_analysis.schedule_manager import GTFSFeed
-# don't redo this
 from data_analysis.gtfs_fetcher import GTFSFetcher
-#from scrape_data.scrape_schedule_versions import create_schedule_list, ScheduleFeedInfo, ScheduleIndexer
-from data_analysis.schedule_manager import ScheduleIndexer, ScheduleFeedInfo
+from data_analysis.schedule_manager import GTFSFeed, ScheduleIndexer, ScheduleFeedInfo
 
-VERSION_ID = "20220718"
-BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
-DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
 GTFS_FETCHER = GTFSFetcher()
 
@@ -128,7 +113,6 @@ class ScheduleSummarizer:
             filename, self.make_trip_summary, ['raw_date', 'start_date_dt', 'end_date_dt'])
         route_daily_summary = self.summarize_date_rt(trip_summary)
         route_daily_summary['version'] = self.schedule_feed_info.schedule_version
-        print(f'RDS: {feed} -> {route_daily_summary}')
         return route_daily_summary
 
     def make_trip_summary(self) -> pd.DataFrame:
@@ -145,7 +129,7 @@ class ScheduleSummarizer:
             pd.DataFrame: A DataFrame with each trip that occurred per row.
         """
         if self.gtfs_feed is None:
-            self.gtfs_feed = self.download_extract_format()
+            self.gtfs_feed = self.download_and_extract()
             self.gtfs_feed = format_dates_hours(self.gtfs_feed)
         assert self.gtfs_feed is not None
         data = self.gtfs_feed
@@ -247,7 +231,7 @@ class ScheduleSummarizer:
 
         return trip_summary
 
-    def download_extract_format(self) -> GTFSFeed:
+    def download_and_extract(self) -> GTFSFeed:
         """Download a zipfile of GTFS data for a given version_id,
             extract data, and format date column.
 
@@ -364,7 +348,7 @@ def main() -> geopandas.GeoDataFrame:
     latest = schedule_list[-1]
     provider = ScheduleSummarizer(latest)
 
-    data = provider.download_extract_format()
+    data = provider.download_and_extract()
 
     # check that there are no dwell periods that cross hour boundary
     cross_hr_bndary = (
@@ -429,7 +413,7 @@ def main() -> geopandas.GeoDataFrame:
     final_gdf["geometry"] = final_gdf["geometry"].simplify(0.0001)
 
     save_path = (
-        DATA_DIR /
+        Path(__file__).parent.parent / "data_output" / "scratch" /
         f"route_shapes_simplified_linestring"
         f"_{pendulum.now().strftime('%Y-%m-%d-%H:%M:%S')}.geojson"
     )

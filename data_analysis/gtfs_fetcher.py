@@ -66,10 +66,6 @@ class GTFSFetcher:
 
 
 if __name__ == "__main__":
-    #files = s3.list_objects_v2(Bucket=BUCKET_PUBLIC, Prefix='cta_schedule_zipfiles_raw/')
-    #p = GTFS_PATH
-    #print(f'Exists: {p.exists()}')
-    #print(f'Is dir: {p.is_dir()}')
     fetcher = GTFSFetcher()
     for filename, size, fullkey, version in fetcher.list():
         print(f'{version}  {filename:30}  {size:10} {fullkey}')
