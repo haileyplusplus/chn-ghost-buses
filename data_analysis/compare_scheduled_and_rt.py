@@ -124,21 +124,26 @@ class Combiner:
             Defaults to ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"].
         save_to_s3 (bool, optional): whether to save the csv file to s3 bucket.
     """
-    def __init__(self, provider, agg_info, holidays, save_to_s3=False):
+    def __init__(self,
+                 cache_manager: CacheManager,
+                 provider,
+                 agg_info: AggInfo,
+                 holidays,
+                 save_to_s3=False):
+        self.cache_manager = cache_manager
         self.schedule_provider = provider
         self.rt_provider = RealtimeProvider(provider, agg_info)
         self.holidays = holidays
         self.agg_info = agg_info
         self.compare_freq_by_rte = None
         self.save_to_s3 = save_to_s3
-        self.fm = CacheManager()
 
     def empty(self):
         return self.compare_freq_by_rte is None
 
     def retrieve(self):
         filename = f'{self.schedule_provider.schedule_feed_info.schedule_version}_combined.json'
-        df = self.fm.retrieve_calculated_dataframe('combined', filename, self.combine, [])
+        df = self.cache_manager.retrieve_calculated_dataframe('combined', filename, self.combine, [])
         #df = self.combine()
         self.compare_freq_by_rte = df
         return df
@@ -188,7 +193,12 @@ class Combiner:
 
 
 class Summarizer:
-    def __init__(self, freq: str = 'D', save_to_s3: bool = False, start_date = None, end_date = None):
+    def __init__(self,
+                 cache_manager: CacheManager,
+                 freq: str = 'D',
+                 save_to_s3: bool = False,
+                 start_date = None,
+                 end_date = None):
         """Calculate the summary by route and day across multiple schedule versions
 
         Args:
@@ -205,9 +215,9 @@ class Summarizer:
         if end_date:
             self.end_date = end_date.date()
         #self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
-        self.schedules = ScheduleIndexer(5, 2022).get_schedules()
+        self.cache_manager = cache_manager
+        self.schedules = ScheduleIndexer(self.cache_manager, 5, 2022).get_schedules()
         # 'schedule_daily_summary'
-        self.fm = CacheManager()
         self.agg_info = AggInfo(freq=self.freq)
         self.holidays: List[str] = ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]
 
@@ -267,7 +277,7 @@ class Summarizer:
         # fix feed date types
         for schedule in tqdm(self.schedules):
             # rename this
-            feed = ScheduleSummarizer(schedule)
+            feed = ScheduleSummarizer(self.cache_manager, schedule)
             new_start_date = None
             new_end_date = None
             print(f'feed {feed.start_date().date()} sd {self.start_date}')
@@ -287,7 +297,7 @@ class Summarizer:
                 print(f'Using alt start date {new_start_date}')
             if new_end_date:
                 print(f'Using alt end date {new_end_date}')
-            combiner = Combiner(feed, agg_info, self.holidays, self.save_to_s3)
+            combiner = Combiner(self.cache_manager, feed, agg_info, self.holidays, self.save_to_s3)
             this_iter = combiner.retrieve()
             if this_iter.empty:
                 continue
@@ -300,9 +310,9 @@ class Summarizer:
         return combined_long, self.build_summary(combined_grouped)
 
 
-def main(freq: str = 'D', save_to_s3: bool = False, start_date = None, end_date = None, existing=None):
-    summarizer = Summarizer(freq, save_to_s3, start_date, end_date)
+def main(cache_manager: CacheManager, freq: str = 'D', save_to_s3: bool = False, start_date = None, end_date = None, existing=None):
+    summarizer = Summarizer(cache_manager, freq, save_to_s3, start_date, end_date)
     return summarizer.main(existing)
 
 if __name__ == "__main__":
-    main()
+    main(CacheManager())

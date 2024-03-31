@@ -21,6 +21,14 @@ IGNORE = '20231216'
 class CacheManager:
     def __init__(self):
         self.data_dir: Path = DATA_DIR
+        self.objects = {}
+
+    def retrieve_object(self, name, func):
+        obj = self.objects.get(name)
+        if obj is None:
+            obj = func()
+            self.objects[name] = obj
+        return obj
 
     def retrieve(self, subdir, filename: str, url: str) -> BytesIO:
         cache_dir = self.data_dir / subdir

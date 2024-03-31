@@ -28,8 +28,8 @@ s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 # filename = f'cta_schedule_zipfiles_raw/google_transit_{today}.zip'
 
 class GTFSFetcher:
-    def __init__(self):
-        self.cache_manager = CacheManager()
+    def __init__(self, cache_manager: CacheManager):
+        self.cache_manager = cache_manager
         files = s3.list_objects_v2(Bucket=BUCKET_PUBLIC, Prefix='cta_schedule_zipfiles_raw/')
         self.unique_files = {}
         self.versions = {}
@@ -66,6 +66,6 @@ class GTFSFetcher:
 
 
 if __name__ == "__main__":
-    fetcher = GTFSFetcher()
+    fetcher = GTFSFetcher(CacheManager())
     for filename, size, fullkey, version in fetcher.list():
         print(f'{version}  {filename:30}  {size:10} {fullkey}')

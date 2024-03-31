@@ -7,6 +7,7 @@ import pandas as pd
 
 import data_analysis.compare_scheduled_and_rt as csrt
 import data_analysis.plots as plots
+from data_analysis.cache_manager import CacheManager
 
 DataUpdate = namedtuple(
     "DataUpdate", ["combined_long_df", "summary_df", "start_date", "end_date"]
@@ -347,7 +348,8 @@ def main() -> None:
     freq = 'D'
     if args.frequency:
         freq = args.frequency[0]
-    combined_long_df, summary_df = csrt.main(freq=freq, start_date=start_date, end_date=end_date, existing=existing_df)
+    cache_manager = CacheManager()
+    combined_long_df, summary_df = csrt.main(cache_manager, freq=freq, start_date=start_date, end_date=end_date, existing=existing_df)
 
     combined_long_df.loc[:, "ratio"] = (
         combined_long_df.loc[:, "trip_count_rt"]

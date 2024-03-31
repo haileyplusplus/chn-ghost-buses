@@ -28,8 +28,6 @@ from data_analysis.gtfs_fetcher import GTFSFetcher
 from data_analysis.schedule_manager import GTFSFeed, ScheduleIndexer, ScheduleFeedInfo
 
 
-GTFS_FETCHER = GTFSFetcher()
-
 logger = logging.getLogger()
 logging.basicConfig(
     level=logging.INFO,
@@ -90,9 +88,12 @@ def format_dates_hours(data: GTFSFeed) -> GTFSFeed:
 
 
 class ScheduleSummarizer:
-    def __init__(self, schedule_feed_info : ScheduleFeedInfo):
+    def __init__(self,
+                 cache_manager: CacheManager,
+                 schedule_feed_info : ScheduleFeedInfo):
+        # eliminate this?
         self.gtfs_feed = None
-        self.cache_manager = CacheManager()
+        self.cache_manager = cache_manager
         self.schedule_feed_info = schedule_feed_info
 
     def start_date(self):
@@ -246,14 +247,15 @@ class ScheduleSummarizer:
         assert self.schedule_feed_info is not None
         version_id = self.schedule_feed_info.schedule_version
         if not self.schedule_feed_info.transitfeeds:
-            cta_gtfs = zipfile.ZipFile(GTFS_FETCHER.retrieve_file(version_id))
+            fetcher = self.cache_manager.retrieve_object('gtfs_fetcher', lambda: GTFSFetcher(self.cache_manager))
+            cta_gtfs = zipfile.ZipFile(fetcher.retrieve_file(version_id))
         else:
-            fm = CacheManager()
             cta_gtfs = zipfile.ZipFile(
-                fm.retrieve("downloads", f"{version_id}.zip",
-                            f"https://transitfeeds.com/p/chicago-transit-authority"
-                            f"/165/{version_id}/download"
-                            )
+                self.cache_manager.retrieve(
+                    "downloads",
+                    f"{version_id}.zip",
+                    f"https://transitfeeds.com/p/chicago-transit-authority/165/{version_id}/download"
+                )
             )
         print(f'download {self.schedule_feed_info} version {version_id}')
         data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
@@ -341,7 +343,7 @@ def main() -> geopandas.GeoDataFrame:
     Returns:
         geopandas.GeoDataFrame: DataFrame with route shapes
     """
-    indexer = ScheduleIndexer(5, 2022)
+    indexer = ScheduleIndexer(CacheManager(),5, 2022)
     schedule_list = indexer.get_schedules()
 
     # Get the latest version

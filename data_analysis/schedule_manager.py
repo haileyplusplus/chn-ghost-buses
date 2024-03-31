@@ -113,11 +113,11 @@ class ScheduleFeedInfo:
 
 
 class ScheduleIndexer:
-    def __init__(self, month: int, year: int, start2022: bool = True):
+    def __init__(self, cache_manager: CacheManager, month: int, year: int, start2022: bool = True):
         self.month = month
         self.year = year
         self.start2022 = start2022
-        self.gtfs_fetcher = GTFSFetcher()
+        self.gtfs_fetcher = GTFSFetcher(cache_manager)
         #self.schedule_list: List[pendulum.date] = []
         #self.start_end_list: List[Tuple[pendulum.date, pendulum.date]] = []
         self.schedules: List[ScheduleFeedInfo] = []
