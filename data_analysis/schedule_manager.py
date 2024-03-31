@@ -26,7 +26,6 @@ FIRST_CTA = pendulum.date(2023, 12, 16)
 class GTFSFeed:
     """Class for storing GTFSFeed data.
     """
-    schedule_version_id: str
     stops: pd.DataFrame
     stop_times: pd.DataFrame
     routes: pd.DataFrame
@@ -65,7 +64,6 @@ class GTFSFeed:
                 logger.info(ke)
                 df = None
             data_dict[txt_file] = df
-        data_dict['schedule_version_id'] = version_id
         return cls(**data_dict)
 
 

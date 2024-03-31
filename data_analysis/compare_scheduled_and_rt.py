@@ -186,8 +186,8 @@ class Combiner:
                 index=False,
             )
         logger.info(f" Processing version {feed['schedule_version']}")
-        logger.info('compare_freq_by_rte')
-        logger.info(compare_freq_by_rte)
+        #logger.info('compare_freq_by_rte')
+        #logger.info(compare_freq_by_rte)
         # should be able to derive compare_by_day_type from compare_freq_by_rte
         return compare_freq_by_rte
 
@@ -232,7 +232,7 @@ class Summarizer:
                 versioned schedule comparisons.
         """
         combined_df = combined_df.copy(deep=True)
-        print(f'build_summary: from {combined_df}')
+        #print(f'build_summary: from {combined_df}')
         summary = (
             combined_df.groupby(["route_id", "day_type"])[
                 ["trip_count_rt", "trip_count_sched"]
@@ -253,7 +253,7 @@ class Summarizer:
                 outpath,
                 index=False,
             )
-        print(f'build_summary: to {summary}')
+        #print(f'build_summary: to {summary}')
         return summary
 
     def main(self, existing=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
