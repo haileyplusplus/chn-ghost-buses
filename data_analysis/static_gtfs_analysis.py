@@ -23,7 +23,7 @@ import pendulum
 import shapely
 import geopandas
 
-from data_analysis.file_manager import FileManager
+from data_analysis.cache_manager import CacheManager
 from data_analysis.gtfs_fetcher import GTFSFetcher
 from data_analysis.schedule_manager import GTFSFeed, ScheduleIndexer, ScheduleFeedInfo
 
@@ -92,7 +92,7 @@ def format_dates_hours(data: GTFSFeed) -> GTFSFeed:
 class ScheduleSummarizer:
     def __init__(self, schedule_feed_info : ScheduleFeedInfo):
         self.gtfs_feed = None
-        self.file_manager = FileManager("schedules")
+        self.cache_manager = CacheManager("schedules")
         self.schedule_feed_info = schedule_feed_info
 
     def start_date(self):
@@ -109,7 +109,7 @@ class ScheduleSummarizer:
 
         feed = self.schedule_feed_info
         filename = f'trip_summary_{self.schedule_feed_info.feed_start_date}_to_{self.schedule_feed_info.feed_end_date}.json'
-        trip_summary = self.file_manager.retrieve_calculated_dataframe(
+        trip_summary = self.cache_manager.retrieve_calculated_dataframe(
             filename, self.make_trip_summary, ['raw_date', 'start_date_dt', 'end_date_dt'])
         route_daily_summary = self.summarize_date_rt(trip_summary)
         route_daily_summary['version'] = self.schedule_feed_info.schedule_version
@@ -248,7 +248,7 @@ class ScheduleSummarizer:
         if not self.schedule_feed_info.transitfeeds:
             cta_gtfs = zipfile.ZipFile(GTFS_FETCHER.retrieve_file(version_id))
         else:
-            fm = FileManager("downloads")
+            fm = CacheManager("downloads")
             cta_gtfs = zipfile.ZipFile(
                 fm.retrieve(f'{version_id}.zip',
                             f"https://transitfeeds.com/p/chicago-transit-authority"

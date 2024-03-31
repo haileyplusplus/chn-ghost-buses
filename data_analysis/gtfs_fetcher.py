@@ -6,7 +6,7 @@ import logging
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
-from data_analysis.file_manager import FileManager
+from data_analysis.cache_manager import CacheManager
 #from s3path import S3Path
 #boto3.setup_default_session(signature_version=UNSIGNED)
 import pandas as pd
@@ -29,7 +29,7 @@ s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 
 class GTFSFetcher:
     def __init__(self):
-        self.file_manager = FileManager('cta_zipfiles')
+        self.cache_manager = CacheManager('cta_zipfiles')
         files = s3.list_objects_v2(Bucket=BUCKET_PUBLIC, Prefix='cta_schedule_zipfiles_raw/')
         self.unique_files = {}
         self.versions = {}
@@ -62,7 +62,7 @@ class GTFSFetcher:
         filename, size, s3_filename, _ = tup
         print(f'Retrieve file of size {size}')
         url = f'https://{BUCKET_PUBLIC}.s3.us-east-2.amazonaws.com/{s3_filename}'
-        return self.file_manager.retrieve(filename, url)
+        return self.cache_manager.retrieve(filename, url)
 
 
 if __name__ == "__main__":

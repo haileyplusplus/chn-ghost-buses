@@ -3,7 +3,7 @@ import logging
 import os
 from pathlib import Path
 #import data_analysis.compare_scheduled_and_rt as csrt
-from data_analysis.file_manager import FileManager
+from data_analysis.cache_manager import FileManager
 from functools import partial
 
 BUCKET_PUBLIC = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')

@@ -18,7 +18,7 @@ DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 IGNORE = '20231216'
 #IGNORE = 's'
 
-class FileManager:
+class CacheManager:
     def __init__(self, subdir):
         self.cache_dir = DATA_DIR / subdir
         if not self.cache_dir.exists():

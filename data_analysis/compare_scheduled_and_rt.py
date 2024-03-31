@@ -10,7 +10,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 
 from data_analysis.common import AggInfo, sum_by_frequency
-from data_analysis.file_manager import FileManager
+from data_analysis.cache_manager import CacheManager
 from data_analysis.realtime_analysis import RealtimeProvider
 from data_analysis.schedule_manager import ScheduleIndexer
 from data_analysis.static_gtfs_analysis import ScheduleSummarizer
@@ -131,7 +131,7 @@ class Combiner:
         self.agg_info = agg_info
         self.compare_freq_by_rte = None
         self.save_to_s3 = save_to_s3
-        self.fm = FileManager('combined')
+        self.fm = CacheManager('combined')
 
     def empty(self):
         return self.compare_freq_by_rte is None
@@ -206,7 +206,7 @@ class Summarizer:
             self.end_date = end_date.date()
         #self.schedule_manager = static_gtfs_analysis.ScheduleManager(month=5, year=2022)
         self.schedules = ScheduleIndexer(5, 2022).get_schedules()
-        self.fm = FileManager('schedule_daily_summary')
+        self.fm = CacheManager('schedule_daily_summary')
         self.agg_info = AggInfo(freq=self.freq)
         self.holidays: List[str] = ["2022-05-31", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-25"]
 
