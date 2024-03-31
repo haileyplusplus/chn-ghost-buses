@@ -23,6 +23,11 @@ class CacheManager:
         self.data_dir: Path = DATA_DIR
         self.objects = {}
         self.ignore_cached_calculation = ignore_cached_calculation
+        self.verbose = verbose
+
+    def log(self, *args):
+        if self.verbose:
+            logging.info(args)
 
     def retrieve_object(self, name, func):
         obj = self.objects.get(name)
@@ -37,12 +42,12 @@ class CacheManager:
             cache_dir.mkdir()
         filepath = cache_dir / filename
         if filepath.exists():
-            logging.info(f'Retrieved cached {url} from {filename}')
+            self.log(f'Retrieved cached {url} from {filename}')
             return BytesIO(filepath.open('rb').read())
         bytes_io = BytesIO(requests.get(url).content)
         with filepath.open('wb') as ofh:
             ofh.write(bytes_io.getvalue())
-        logging.info(f'Stored cached {url} in {filename}')
+        self.log(f'Stored cached {url} in {filename}')
         return bytes_io
 
     @staticmethod
@@ -62,14 +67,10 @@ class CacheManager:
         csv = filename.endswith('.csv')
         #if filename.replace('-', '').startswith(IGNORE):
         if self.ignore_cached_calculation:
-            print(f'Ignoring whether {subdir}/{filename} is in cache')
+            self.log(f'Ignoring whether {subdir}/{filename} is in cache')
             return func()
-        #if csv and not filepath.exists():
-        #    print(f'Using csv fallback for {filename}')
-        #    csv = False
-        #    filepath = self.cache_dir / filename.replace('.csv', '.json')
         if filepath.exists():
-            logging.info(f'Retrieved {subdir}/{filename} from cache')
+            self.log(f'Retrieved {subdir}/{filename} from cache')
             if csv:
                 logging.debug(f'Reading csv from {filepath}')
                 df = pd.read_csv(filepath, low_memory=False)
@@ -80,15 +81,11 @@ class CacheManager:
                 return pd.DataFrame()
             for c in dt_fields:
                 df = self.fix_dt_column(df, c)
-            #print('Retrieved df')
-            #print(df)
             return df
-        logging.info(f'Writing {subdir}/{filename} to cache')
+        self.log(f'Writing {subdir}/{filename} to cache')
         df = func()
         if csv:
             df.to_csv(filepath)
         else:
             df.to_json(filepath)
-        #print(f'Storing df')
-        #print(df)
         return df
