@@ -48,5 +48,4 @@ def sum_by_frequency(
                 pd.Grouper(level='route_id')])[agg_info.aggvar]
         .sum().reset_index()
     )
-    ##print(f'>> sum_by_frequency in {df} >> sum_by_frequency out {out}')
     return out

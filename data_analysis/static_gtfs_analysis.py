@@ -10,7 +10,6 @@
 
 # imports
 from __future__ import annotations
-import os
 from pathlib import Path
 
 import logging
@@ -34,7 +33,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
-
 
 
 # Basic data transformations
@@ -107,8 +105,6 @@ class ScheduleSummarizer:
 
     def get_route_daily_summary(self):
         logger.info("\nSummarizing trip data")
-
-        feed = self.schedule_feed_info
         filename = f'trip_summary_{self.schedule_feed_info.feed_start_date}_to_{self.schedule_feed_info.feed_end_date}.json'
         trip_summary = self.cache_manager.retrieve_calculated_dataframe(
             'schedules', filename, self.make_trip_summary, ['raw_date', 'start_date_dt', 'end_date_dt'])
@@ -134,6 +130,7 @@ class ScheduleSummarizer:
             self.gtfs_feed = format_dates_hours(self.gtfs_feed)
         assert self.gtfs_feed is not None
         data = self.gtfs_feed
+
         # construct a datetime index that has every day between calendar start and
         # end
         calendar_date_range = pd.DataFrame(

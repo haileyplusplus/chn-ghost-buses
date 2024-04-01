@@ -116,8 +116,6 @@ class ScheduleIndexer:
         self.year = year
         self.start2022 = start2022
         self.gtfs_fetcher = GTFSFetcher(cache_manager)
-        #self.schedule_list: List[pendulum.date] = []
-        #self.start_end_list: List[Tuple[pendulum.date, pendulum.date]] = []
         self.schedules: List[ScheduleFeedInfo] = []
         self.get_transitfeeds_schedules()
         self.get_gtfs_schedules()
@@ -158,8 +156,6 @@ class ScheduleIndexer:
             sfi.transitfeeds = False
             self.schedules.append(sfi)
             current = gtfs_versions.pop(0)
-        # for sfi in self.schedule_feed_infos:
-        #     print(f'sfi: {sfi}')
 
     def get_schedules(self):
         return self.schedules

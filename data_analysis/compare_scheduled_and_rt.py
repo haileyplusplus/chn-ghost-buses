@@ -151,8 +151,6 @@ class Combiner:
     def combine(self):
         feed = self.schedule_provider.schedule_feed_info
         logging.info(f'Process feed {feed}')
-        start_date = feed["feed_start_date"]
-        end_date = feed["feed_end_date"]
         # self.pbar.set_description(
         #     f"Loading schedule version {feed['schedule_version']}"
         # )
@@ -186,9 +184,6 @@ class Combiner:
                 index=False,
             )
         logger.info(f" Processing version {feed['schedule_version']}")
-        #logger.info('compare_freq_by_rte')
-        #logger.info(compare_freq_by_rte)
-        # should be able to derive compare_by_day_type from compare_freq_by_rte
         return compare_freq_by_rte
 
 
@@ -232,7 +227,6 @@ class Summarizer:
                 versioned schedule comparisons.
         """
         combined_df = combined_df.copy(deep=True)
-        #print(f'build_summary: from {combined_df}')
         summary = (
             combined_df.groupby(["route_id", "day_type"])[
                 ["trip_count_rt", "trip_count_sched"]
@@ -253,7 +247,6 @@ class Summarizer:
                 outpath,
                 index=False,
             )
-        #print(f'build_summary: to {summary}')
         return summary
 
     def main(self, existing=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -270,7 +263,6 @@ class Summarizer:
             combined_long = existing
         else:
             combined_long = pd.DataFrame()
-        #combined_grouped = pd.DataFrame()
         if self.end_date is not None:
             logger.info(f'Filtering to {self.end_date}')
 

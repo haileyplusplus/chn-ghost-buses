@@ -1,31 +1,17 @@
 import os
 
-import logging
-
 # required for pandas to read csv from aws
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 from data_analysis.cache_manager import CacheManager
-#from s3path import S3Path
-#boto3.setup_default_session(signature_version=UNSIGNED)
-import pandas as pd
-import pendulum
-from tqdm import tqdm
-
-from utils import s3_csv_reader
-
 
 BUCKET_PUBLIC = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
+
+# Enable reading from public buckets without setting up credentials
 # https://stackoverflow.com/questions/34865927/can-i-use-boto3-anonymously
 s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
-#BASE_PATH = S3Path(f"/{BUCKET_PUBLIC}")
 
-#GTFS_PATH = BASE_PATH / "cta_schedule_zipfiles_raw"
-
-
-
-# filename = f'cta_schedule_zipfiles_raw/google_transit_{today}.zip'
 
 class GTFSFetcher:
     def __init__(self, cache_manager: CacheManager):

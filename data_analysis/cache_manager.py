@@ -1,22 +1,14 @@
-import os
 from pathlib import Path
 
 import logging
 import datetime
 
-import pandas
 import pandas as pd
 import requests
 from io import BytesIO
 
-BUCKET = os.getenv('BUCKET_PUBLIC', 'chn-ghost-buses-public')
 DATA_DIR = Path(__file__).parent.parent / "data_output" / "scratch"
 
-
-#IGNORE = '20230211'
-#IGNORE = '20221020'
-#IGNORE = '20231216'
-#IGNORE = 's'
 
 class CacheManager:
     def __init__(self, ignore_cached_calculation=False, verbose=False):
@@ -65,7 +57,6 @@ class CacheManager:
             cache_dir.mkdir()
         filepath = cache_dir / filename
         csv = filename.endswith('.csv')
-        #if filename.replace('-', '').startswith(IGNORE):
         if self.ignore_cached_calculation:
             self.log(f'Ignoring whether {subdir}/{filename} is in cache')
             return func()
