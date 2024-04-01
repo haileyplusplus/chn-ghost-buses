@@ -5,7 +5,7 @@ import numpy
 """
 Verify that there are no missing days in the output dataframe.
 
-Example: 
+Example:
  python3 utils/show_missing_days.py \
    data_output/scratch/schedule_vs_realtime_all_day_types_routes_2022-05-20_to_2024-03-28.json
 """
