@@ -257,7 +257,6 @@ class ScheduleSummarizer:
                     f"https://transitfeeds.com/p/chicago-transit-authority/165/{version_id}/download"
                 )
             )
-        print(f'download {self.schedule_feed_info} version {version_id}')
         data = GTFSFeed.extract_data(cta_gtfs, version_id=version_id)
         data = format_dates_hours(data)
         return data
@@ -293,7 +292,6 @@ class ScheduleSummarizer:
                 "raw_date": "date"},
             inplace=True
         )
-        print(f'summary date: {summary.date}, type {type(summary.date)}')
         summary.date = summary.date.dt.date
         return summary
 

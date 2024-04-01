@@ -50,7 +50,6 @@ class RealtimeProvider:
 
     def rt_summarize(self, rt_df: pd.DataFrame) -> pd.DataFrame:
         rt_df = rt_df.copy()
-        logging.info('rt df')
         rt_freq_by_rte = sum_by_frequency(rt_df, self.agg_info)
         return rt_freq_by_rte
 

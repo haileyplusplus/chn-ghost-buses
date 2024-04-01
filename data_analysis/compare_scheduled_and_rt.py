@@ -274,13 +274,10 @@ class Summarizer:
         if self.end_date is not None:
             logger.info(f'Filtering to {self.end_date}')
 
-        # fix feed date types
         for schedule in tqdm(self.schedules):
-            # rename this
             feed = ScheduleSummarizer(self.cache_manager, schedule)
             new_start_date = None
             new_end_date = None
-            print(f'feed {feed.start_date().date()} sd {self.start_date}')
             if self.start_date is not None:
                 if feed.end_date().date() < self.start_date:
                     logger.info(f'Skipping out-of-range feed {feed.schedule_feed_info}')
@@ -294,9 +291,9 @@ class Summarizer:
                 if self.end_date < feed.end_date().date():
                     new_end_date = self.end_date
             if new_start_date:
-                print(f'Using alt start date {new_start_date}')
+                logging.info(f'Using start date {new_start_date}')
             if new_end_date:
-                print(f'Using alt end date {new_end_date}')
+                logging.info(f'Using end date {new_end_date}')
             combiner = Combiner(self.cache_manager, feed, agg_info, self.holidays, self.save_to_s3)
             this_iter = combiner.retrieve()
             if this_iter.empty:

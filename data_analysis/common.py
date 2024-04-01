@@ -1,12 +1,9 @@
 """
 Utility functions common to both schedule and realtime analysis.
 """
-import os
-
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
-import logging
 import pandas as pd
 
 
@@ -44,7 +41,6 @@ def sum_by_frequency(
             by a specified frequency.
     """
     df = df.copy()
-    logging.info(df)
     out = (
         df.set_index(agg_info.byvars)
         .groupby(

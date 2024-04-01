@@ -60,7 +60,6 @@ class GTFSFetcher:
     def retrieve_file(self, version):
         tup = self.versions[version]
         filename, size, s3_filename, _ = tup
-        print(f'Retrieve file of size {size}')
         url = f'https://{BUCKET_PUBLIC}.s3.us-east-2.amazonaws.com/{s3_filename}'
         return self.cache_manager.retrieve('cta_zipfiles', filename, url)
 
